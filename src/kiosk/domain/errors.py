@@ -80,3 +80,67 @@ class MigrationError(KioskError):
     """A schema migration could not be read or applied."""
 
     code = "MIGRATION_FAILED"
+
+
+class HardwareError(KioskError):
+    """Base class for failures of a physical device.
+
+    Hardware errors stop the affected flow. No ledger entry is booked unless
+    the device confirmed the operation.
+    """
+
+    code = "HW_ERROR"
+
+
+class HardwareTimeoutError(HardwareError):
+    """The device did not answer within the allowed time."""
+
+    code = "HW_TIMEOUT"
+
+
+class PortLostError(HardwareError):
+    """The serial port or USB device disappeared or cannot be opened."""
+
+    code = "PORT_LOST"
+
+
+class CardJammedError(HardwareError):
+    """A card is stuck in the dispenser."""
+
+    code = "CARD_JAMMED"
+
+
+class CardOverlapError(HardwareError):
+    """Two cards overlap in the dispenser."""
+
+    code = "CARD_OVERLAP"
+
+
+class DispenserEmptyError(HardwareError):
+    """The card stock is empty."""
+
+    code = "DISPENSER_EMPTY"
+
+
+class DispenserStateError(HardwareError):
+    """The device reports a state that does not allow the requested action."""
+
+    code = "DISPENSER_STATE"
+
+
+class ProtocolError(HardwareError):
+    """A device frame is malformed, has a wrong checksum, or is unexpected."""
+
+    code = "PROTOCOL_ERROR"
+
+
+class DeviceNotConfiguredError(HardwareError):
+    """Real hardware is required but no device is configured."""
+
+    code = "DEVICE_NOT_CONFIGURED"
+
+
+class BusyError(HardwareError):
+    """The device is occupied by another operation and did not become free."""
+
+    code = "BUSY"

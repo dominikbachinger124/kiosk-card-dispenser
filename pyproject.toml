@@ -1,0 +1,46 @@
+[project]
+name = "kiosk-card-dispenser"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11"
+dependencies = [
+    "pyserial>=3.5",
+    "pyside6>=6.12.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "kiosk"
+module-root = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers -m 'not hardware'"
+markers = [
+    "hardware: requires a real K720 or ID reader; deselected by default",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src/kiosk/domain", "src/kiosk/services"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["src", "tests"]
+# Markdown code blocks are documentation, not formatted by the tool.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+]

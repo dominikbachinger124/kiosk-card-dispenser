@@ -21,3 +21,6 @@ config.local.toml
 build/
 dist/
 *.egg-info/
+
+# uv
+.venv/

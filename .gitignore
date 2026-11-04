@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local data and secrets
+*.db
+*.db-*
+.env
+.env.*
+config.local.toml
+
+# Build artifacts
+build/
+dist/
+*.egg-info/

@@ -1,0 +1,29 @@
+# Nicht geheime Standardkonfiguration. Keine PIN, UID oder Salt eintragen.
+
+[app]
+language = "de"
+mode = "real"
+cooldown_hours = 24
+cooldown_enforced = false
+
+[money]
+topup_cents = 2000
+deposit_cents = 500
+gatekeeper_collection_cents = 2500
+default_payment_cents = 200
+
+[hardware]
+mode = "real"
+k720_port = "/dev/serial/by-id/REPLACE_WITH_DEVICE"
+# Erst mit echter Herstellerangabe aus docs/k720_protocol.md setzen.
+serial_baudrate = 0
+id_reader_device = "auto"
+
+[admin]
+# Ein bis zwei UIDs und PIN-Hash lokal bereitstellen; keine Secrets committen.
+admin_uids = []
+pin_hash = ""
+
+[privacy]
+# Salt nur lokal ueber Umgebung/ignorierte Konfiguration bereitstellen.
+id_hash_salt_env = "KIOSK_ID_HASH_SALT"

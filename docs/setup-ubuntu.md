@@ -1,19 +1,23 @@
 # Einrichtung unter Ubuntu 24.04 LTS
 
 ## System und Python
-Ubuntu 24.04 LTS installieren und Updates einspielen. Ziel ist Python 3.11; wenn das System nur Python 3.12 anbietet, ist Python >=3.11 einschliesslich 3.12 zulaessig. Python 3.11 bei Bedarf kontrolliert via `uv` oder einem gepflegten Paketweg (z.B. deadsnakes) bereitstellen; keine System-Python-Installation ueberschreiben.
+Ubuntu 24.04 LTS installieren und Updates einspielen. Projektpflege erfolgt mit `uv` (`pyproject.toml` + `uv.lock`). Entwicklungsziel ist Python 3.12 (`.python-version`); Python >=3.11 ist ebenfalls zulaessig. Fehlende Interpreter bereitstellen mit `uv python install 3.11 3.12`. Keine System-Python-Installation ueberschreiben und kein `pip`/`venv` fuer Projektabhaengigkeiten verwenden.
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip build-essential git
-# In Projektverzeichnis:
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install pyside6 pyserial pytest
+sudo apt install -y build-essential git curl
+
+# uv installieren (einmalig, Benutzerinstallation)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Im Projektverzeichnis: Interpreter und Abhaengigkeiten aus uv.lock
+uv python install 3.12
+uv sync
 ```
 
-Optional fuer Entwicklung: `ruff` und `mypy` installieren. Projektabhaengigkeiten spaeter ueber pyproject/Lock-Prozess reproduzierbar verwalten.
+`uv sync` legt die `.venv` im Projekt an und installiert Laufzeit- sowie Entwicklungsabhaengigkeiten exakt gemaess `uv.lock`. Dev-Werkzeuge (pytest, ruff, mypy) sind Teil der Dependency-Gruppe `dev` in `pyproject.toml`. Kiosk-Start und Tests erfolgen mit `uv run`, nicht durch manuelles Aktivieren der venv.
+
+Abhaengigkeiten aendern nur mit `uv add <paket>` (Laufzeit) bzw. `uv add --dev <paket>` (Entwicklung); das aktualisiert `uv.lock`, das zusammen mit `pyproject.toml` committet wird.
 
 ## Serieller K720-Anschluss
 Adapter RS-232 ueber USB-to-Serial anschliessen und Device ermitteln:
@@ -47,7 +51,7 @@ After=graphical-session.target
 [Service]
 Type=simple
 WorkingDirectory=%h/kiosk-card-dispenser
-ExecStart=%h/kiosk-card-dispenser/.venv/bin/python -m kiosk
+ExecStart=%h/.local/bin/uv run --project %h/kiosk-card-dispenser python -m kiosk
 Restart=on-failure
 RestartSec=5
 Environment=QT_AUTO_SCREEN_SCALE_FACTOR=1

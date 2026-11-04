@@ -12,7 +12,7 @@ import pytest
     [
         "kiosk",
         "kiosk.config",
-        "kiosk.errors",
+        "kiosk.domain.errors",
         "kiosk.domain",
         "kiosk.storage",
         "kiosk.hardware",

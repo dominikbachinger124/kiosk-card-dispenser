@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from kiosk.errors import ConfigError
+from kiosk.domain.errors import ConfigError
 
 _OPERATING_MODE = "real"
 

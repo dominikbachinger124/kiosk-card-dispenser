@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from kiosk.config import load_config, parse_config
-from kiosk.errors import ConfigError
+from kiosk.domain.errors import ConfigError
 
 
 def _raw(**overrides: object) -> dict[str, dict[str, object]]:

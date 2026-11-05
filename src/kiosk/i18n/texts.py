@@ -47,6 +47,16 @@ TEXTS: dict[str, dict[str, str]] = {
         "error.PAYOUT_NOT_CONFIRMED": "Bitte alle Bestätigungen setzen.",
         "error.NOT_FOUND": "Konto nicht gefunden.",
         "error.KIOSK_ERROR": "Es ist ein Fehler aufgetreten.",
+        "issue.jam_notice": (
+            "Leider ist ein technischer Fehler aufgetreten. "
+            "Ihre Buchung kann nicht abgeschlossen werden. "
+            "Bitte wenden Sie sich an das Personal. "
+            "Zeit: {time}. Konto: {account}."
+        ),
+        "issue.empty_notice": (
+            "Derzeit sind keine Karten verfügbar. "
+            "Bitte wenden Sie sich an das Personal. Zeit: {time}."
+        ),
     },
     "en": {
         "admin.title": "Administration",
@@ -85,6 +95,14 @@ TEXTS: dict[str, dict[str, str]] = {
         "error.PAYOUT_NOT_CONFIRMED": "Please set all confirmations.",
         "error.NOT_FOUND": "Account not found.",
         "error.KIOSK_ERROR": "An error occurred.",
+        "issue.jam_notice": (
+            "Unfortunately a technical error occurred. "
+            "Your booking cannot be completed. "
+            "Please contact the staff. Time: {time}. Account: {account}."
+        ),
+        "issue.empty_notice": (
+            "No cards are currently available. Please contact the staff. Time: {time}."
+        ),
     },
 }
 

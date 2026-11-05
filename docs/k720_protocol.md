@@ -58,9 +58,9 @@ Antwortrahmen haben dieselbe Form wie Befehlsrahmen, die Nutzlast ist die Antwor
 | Karte nach Leseposition        | `FC7` (0x46 0x43 0x37) | ja   | Ergebnis Sensor Lesen und Sensor User (`0x0003`). Abgelehnt aus L+U (`0x4013`).             |
 | Karte nach Lesen (von Stapel)  | `FC6` (0x46 0x43 0x36) | ja   | Nur aus Sensor Stapel allein (`0x0014` -> `0x0006`). Abgelehnt aus U, L, L+U, L+S.          |
 | Karte Lesen -> User            | `FC4` (0x46 0x43 0x34) | ja   | Aus L, L+U, S, L+S, U. Ergebnis `0x0001`.                                                    |
-| Auswurf (NICHT Regelbetrieb)   | `FC0` (0x46 0x43 0x30) | ja   | Wirft die Karte aus dem Gerät aus. Nicht lesbar, nicht registriert. Siehe Abschnitt 8.      |
+| Auswurf (VERBOTEN)             | `FC0` (0x46 0x43 0x30) | ja   | ABSOLUT VERBOTEN. Wirft die Karte aus dem Gerät aus. Nicht lesbar, nicht registriert. Siehe Abschnitt 8. |
 | Ablage (Entsorgung)            | `CP` (0x43 0x50)   | ja       | Nur aus Sensor Lesen oder Sensor User. Abgelehnt aus S allein (`0x4014`).                  |
-| Reset                          | `RS` (0x52 0x53)   | nein     | Keine Wirkung auf Sensorbits, Quittungston am Gerät.                                       |
+| Reset                          | `RS` (0x52 0x53)   | nein     | Reset, ein Piepton. Sensorbelegung bleibt unverändert, keine Karte wird entfernt.          |
 | Buzzer ein / aus               | `BE` / `BD`        | nein     | Keine Antwort-Nutzlast. Im Test kein hörbarer Ton beobachtet, Wirkung offen.              |
 
 Nicht verwenden: `CS0`..`CS5` (Baudrate, bricht die Verbindung), `DB` (vom Gerät mit `N` `DB` `0x00` beantwortet, nicht unterstützt).
@@ -86,9 +86,9 @@ Antworten mit Fehlerbit: Ein Befehl, der nicht ausgeführt werden kann, erzeugt 
 | `0x0002` | Sensor Lesen belegt                           | Karte an Leseposition                      |
 | `0x0001` | Sensor User belegt                            | Karte am Ausgang für den Nutzer            |
 
-Die Sensornamen sind fest: Sensor User (`0x0001`), Sensor Lesen (`0x0002`), Sensor Stapel (`0x0004`). Die Vorratsschwelle wird am Gerät eingestellt, 5 bis 72 Karten (zweiter Extended Rack). Es gibt keine feste Kartenzahl im Code.
+Die Sensornamen sind fest: Sensor User (`0x0001`), Sensor Lesen (`0x0002`), Sensor Stapel (`0x0004`).
 
-Zustand "Karte im Schacht" ist nicht sicher aus dem Status ablesbar. Die Anzahl ist nur Nutzerangabe.
+Sensorvorrat: Er löst bei ca. 17 Karten aus (Bit `0x0010`). Danach wird der Vorrat immer als kritisch angezeigt. Ein Sensor meldet nur "kritisch", nicht die Anzahl. Ab Auslösung ist die Restmenge nur durch Zählen bekannt (Startwert ca. 17, minus jede Ausgabe). Die Schwelle wird am Gerät eingestellt (5 bis 72 Karten, zweiter Extended Rack).
 
 ## 7. Zustände und Lesbarkeit
 
@@ -106,7 +106,7 @@ Lesen per `0x3B 0x30` / `0x3B 0x31` funktioniert:
 
 Nicht lesbar: L+S (Rückfallposition nach fehlerhaftem `FC6`).
 
-Nicht gemessen: U allein, S allein, U+S (`0x0005`).
+Nicht gemessen: U allein, S allein. U+S (`0x0005`) ist gemessen, siehe 10.1.
 
 Befehlsmatrix (gemessen, Zustand nach Befehl):
 
@@ -116,20 +116,20 @@ Befehlsmatrix (gemessen, Zustand nach Befehl):
 | FC7 | -> L+U | -> L+U | -> L+U | abgelehnt (`0x4013`) | -> L+U |
 | FC6 | abgelehnt | abgelehnt | -> L+S | abgelehnt | abgelehnt |
 | FC4 | Justage, bleibt U | -> U | -> U | -> U | -> U |
-| FC0 | Auswurf | Auswurf | Auswurf | Auswurf | Auswurf |
+| FC0 | verboten | verboten | verboten | verboten | verboten |
 | CP  | -> S (Ablage) | -> S (Ablage) | abgelehnt | -> S | -> S |
-| RS  | keine Bewegung | keine Bewegung | keine Bewegung | keine Bewegung | keine Bewegung |
+| RS  | keine Bewegung, Sensoren unverändert | keine Bewegung, Sensoren unverändert | keine Bewegung, Sensoren unverändert | keine Bewegung, Sensoren unverändert | keine Bewegung, Sensoren unverändert |
 
 Hinweise zur Matrix:
 - "Justage": kurze Vor- und Rückbewegung, Endzustand unverändert.
 - DC aus U und FC8 wurden gemessen; FC8 hatte keine Wirkung per Status (Einzelmessungen mit und ohne Nutzerbeobachtung).
-- Zustand U+S (`0x0005`) ist nie beobachtet worden.
+- Zustand U+S (`0x0005`) ist beobachtet worden, siehe 10.1 (dort mit Vorrat-Warnung als `0x0015`).
 
-## 8. Auswurf (FC0): gefährlich, nicht im Regelbetrieb
+## 8. Auswurf (FC0): absolut verboten
 
 - Eine mit `FC0` ausgeworfene Karte wird von der nächsten Ausgabe **nicht** weggeschoben. Sie bleibt im Schacht und verstopft ihn.
 - Folge: Ein Schachtstau ist nicht mechanisch sicher behebbar, ohne den roten Knopf am Gerät zu verwenden.
-- Regel: `FC0` im Dispense-Flow nicht verwenden. Nur mit ausdrücklicher Freigabe und mit anschließender Kontrolle des Schachts.
+- Verbot: `FC0` ist absolut verboten. Es wird in keinem Flow, in keinem Zustand und auch nicht mit Freigabe gesendet.
 
 ## 9. Ablauf Ausgabe (Empfehlung)
 
@@ -146,50 +146,47 @@ Dieser Ablauf ist die Empfehlung. Schritt 5 (`FC7` aus Ausgang) ist gemessen (Zu
 ## 10. Bekannte Einschränkungen und offene Punkte
 
 - Die Antwort auf `0x3B 0x31` ist `P;1` gefolgt von 4 UID-Bytes. CLAUDE.md nennt `P;3B31`, das wurde am Gerät nicht bestätigt.
-- Stapel-Mechanik: Beim Einschub einer Karte von vorne während eine Karte an Sensor Stapel steht, kann die Stapelkarte zurück in den Stapel geschoben werden und sich dort festklemmen. Das ist der größte anzunehmende Fehlerfall. Der Status zeigt das nicht zuverlässig.
-- Ein `CP`-Befehl wurde in einem Lauf quittiert, die Karte blieb aber in Sensor Lesen und Sensor User. Ursache nicht geklärt. Ob es eine andere Kartenart ist, ist offen.
+- Stapel-Mechanik: Beim Einschub einer Karte von vorne während eine Karte an Sensor Stapel steht, kann die Stapelkarte zurück in den Stapel geschoben werden und sich dort festklemmen. Das ist der größte anzunehmende Fehlerfall.
+- Vorratszählung: Der Status ist für die Sensoren korrekt, aber die Restmenge im Vorrat ist nicht zuverlässig bestimmbar. Nach Auslösung des Sensorvorrats (ca. 17 Karten) muss die Restmenge gezählt werden. Zählfehler und Doppeleinzug machen die Zählung falsch.
 - `BE` hat im Test keinen hörbaren Ton erzeugt. Die Wirkung von `BD`/`BE` ist offen.
 - Die Ablagebox-Füllung wird nicht gezählt. Der K720 zählt keine Karten; das Bit `0x0080` ist für den K720 nicht relevant (der Zählsensor gehört zum K750).
-- `0x1000` (Vorbereitung) tritt nach Auswurf und während des Nachladens des Stapels auf. Ob es auch bei normaler Vorbereitung erscheint, ist nicht geprüft.
 - Die Sensornamen sind Projektnamen. Im Handbuch heißen die Sensoren anders (Sensor 1 Vorab-Einzug, Sensor 2 Leseposition, Sensor 3 Kartenmund). Für die Implementierung gelten die Projektnamen.
 
 ### 10.1 Beobachteter Stau U+S mit Ueberlappung (Sitzung, Messung am Geraet)
 
-Befund (gemessen, nicht reproduzierbar auf Befehl):
+Befund (gemessen, nur selten reproduzierbar: bei `FC4` wird in seltenen Fällen eine zweite Karte mit eingezogen):
 
-- `FC4` aus L+U (`0x0003`) ergab stabil `0x0015` (U+S, Vorrat-Warnung aktiv). Das ist der bisher unbeobachtete Zustand U+S, jetzt gemessen.
+- `FC4` aus L+U (`0x0003`) ergab stabil `0x0015` (U+S, Vorrat-Warnung aktiv). Die Ursache ist mechanisch: Eine zweite Karte wird beim Ausgeben fälschlich mit eingezogen und liegt dann an Sensor User und Sensor Stapel.
 - Nachfolgend `FC7` aus U+S: `CardOverlapError`, Status `0x0256` (Ausgabefehler `0x0200`, Ueberlappung `0x0040`, L+S). Der Befehl wurde vom Geraet nicht ausgefuehrt, die Bits blockieren.
 - `CP` aus diesem Zustand: ACK, danach `0x4256` (Befehl abgelehnt), dann wieder `0x0256`. Keine Bewegung.
-- `FC0` aus diesem Zustand: ACK, danach `0x1056` (Vorbereitung, Ueberlappung bleibt). Ausgabefehler-Bit weg. Ob dabei eine Karte ausgeworfen wurde, ist nicht gemessen.
+- `FC0` aus diesem Zustand (Messung vor dem Verbot, nicht wiederholen): ACK, danach `0x1056` (Vorbereitung, Ueberlappung bleibt). Ausgabefehler-Bit weg. Ob dabei eine Karte ausgeworfen wurde, ist nicht gemessen.
 - Danach stabil `0x0054` (Ueberlappung, Vorrat-Warnung, Stapel belegt). Keine Leseposition, kein Ausgang.
-- `RS` aus `0x0054`: ACK, danach stabil `0x0014`. Die Ueberlappung ist geloest. Damit weicht die Beobachtung von der Tabelle in Abschnitt 5 ab, die fuer `RS` keine Wirkung auf die Sensorbits angibt. Einmal beobachtet, nicht wiederholt.
 
-Einschraenkung (Nutzerbefund, Sichtpruefung am Geraet):
+Behandlung Kartenstau (gilt für Dreifachbelegung `0x0007`/`0x0017`):
 
-- Die klemmende Karte steckt am Ausgang Sensor User und blockiert die Ausgabe neuer Karten. Der Status zeigt das nicht: Nach `RS` ist der Ausgang frei, obwohl die Karte dort steckt.
-- Die Karte ist ausserhalb des Sensorbereichs fuer den K720 nicht erkennbar. Der Treiber kann den Stau nicht selbst beheben.
-- Konsequenz: `RS` ist kein Ersatz fuer die Entnahme. Die Ausgabe bleibt blockiert, bis die Karte entfernt wurde.
+1. Stabil U+S erkannt (`0x0005` bzw. `0x0015`): Ausgabe pausieren, keine Befehle senden, Status weiter lesen.
+2. Danach prüfen, ob S+L vorliegt (Sensor Lesen und Sensor Stapel belegt, Kartenstau).
+3. Stau liegt vor: Gerät stoppt vollständig. Das Display zeigt "Kartenstau" und fordert zum Admin-Login auf.
+4. Admin meldet sich mit Admin-Karte und Admin-PIN an. Erst dann gilt die Person als Admin am Gerät.
+5. Admin öffnet das Gerät, drückt den roten Knopf und entfernt den Stau.
+6. Admin quittiert den Fehler in der Software. Erst danach darf `AP` wieder als regulär gelten und die Ausgabe starten.
+7. Nach der Quittierung ist ein Prüflauf möglich.
 
-Zulaessige Behandlung (Freigabe durch Admin erforderlich, nicht durch den Treiber entscheidbar):
+`FC0` ist verboten (Abschnitt 8). `RS` ist kein Ersatz für den roten Knopf. Die Software gibt keine Ausgabe frei, solange der Fehler nicht quittiert ist.
 
-1. Stau erkannt (U+S oder Ueberlappung): Geraet sperren, keine weitere Ausgabe, Stoerung anzeigen.
-2. Admin entfernt die Karte aus dem Ausgang, oder bei klemmender Karte drueckt er die rote Taste am Geraet.
-3. Admin bestaetigt die Entnahme in der Software. Erst danach darf `AP` wieder als regulaer gelten und die Ausgabe starten.
-
-`FC0` wird dafuer nicht verwendet (Abschnitt 8).
+Fehlerzustand Überlappung `0x0054` (Überlappung, Vorrat-Bit, Sensor Stapel): eigener Fehlerzustand, kein Teil der Dreifachbelegung. Er führt ebenfalls zum vollständigen Stillstand. Es gelten dieselben Schritte 3 bis 7 (Kartenstau-Anzeige, Admin-Login mit Karte und PIN, roter Knopf, Quittierung, Prüflauf).
 
 Weitere Messungen in derselben Sitzung:
 
-- `FC4` aus L+U (`0x0013`) ergab zum zweiten Mal U+S (`0x0015`), stabil. U+S ist damit reproduzierbar.
+- `FC4` aus L+U (`0x0013`) ergab zum zweiten Mal U+S (`0x0015`), stabil. U+S tritt damit wiederholt auf, aber nur in seltenen Fällen.
 - `FC8` aus U+S (`0x0015`): ACK, keine Aenderung des Status. Die Sichtpruefung der vorderen Karte stand aus.
 - `FC4` aus `0x0017` (U+L+S, mit Ueberlappung): erzeugte `0x0257` (Ausgabefehler, Ueberlappung), stabil.
-- `FC0` aus `0x0257`: ACK, Status unveraendert `0x0257`.
-- `RS` aus `0x0257`: ACK, danach `0x0017`, ohne blockierende Bits. Die Ueberlappung und der Ausgabefehler wurden durch `RS` zurueckgesetzt.
-- `FC0` aus `0x0017`: ACK, danach wieder `0x0257`. `FC0` loest den Fehler nicht.
+- `FC0` aus `0x0257` (Messung vor dem Verbot): ACK, Status unveraendert `0x0257`.
+- `FC0` aus `0x0017` (Messung vor dem Verbot): ACK, danach wieder `0x0257`. `FC0` loest den Fehler nicht.
 - Nach dem Nutzer-Eingriff (roter Knopf, Entnahme durch Person am Geraet) stabil `0x0016`, danach `0x0014`. Der Stau war damit behoben.
-- `RS` aus `0x0014` (nach Entnahme, Stapel belegt): ACK, danach nach ca. 3 s `0x0017` (Ausgang, Leseposition, Stapel belegt). `RS` veraendert die Sensorbelegung also auch ohne Ueberlappung. Das widerspricht der Tabelle in Abschnitt 5 (keine Bewegung) und ist in der Sitzung zweimal beobachtet.
+Zusammenfassung fuer die Behandlung: `FC0` ist verboten. Ein Stau mit Ueberlappung braucht eine Person am Geraet und eine Bestaetigung, dass der Schacht frei ist.
 
-Zusammenfassung fuer die Behandlung: `RS` ist kein sicheres Mittel gegen Staus, es kann Sensorzustaende verschieben. `FC0` ist ausgeschlossen. Ein Stau mit Ueberlappung braucht eine Person am Geraet und eine Bestaetigung, dass der Schacht frei ist.
+Fehlerzustand Dreifachbelegung: Sind Sensor User, Sensor Lesen und Sensor Stapel gleichzeitig belegt (`0x0007`, mit oder ohne Vorrat-Bit `0x0010`, also `0x0007` bzw. `0x0017`), gilt das als Fehlerzustand und wird wie ein Stau behandelt. Der Zustand `0x0014` (nur Stapel, Vorrat-Bit gesetzt) ist dagegen der normale Zustand bei kritischem Vorrat.
 
 Ablauf FC7 aus S -> Lesen -> FC4 aus L+U (gemessen):
 
@@ -209,10 +206,6 @@ Annahme-Ablauf (Nutzer schiebt Karte von vorne ein, ohne Befehl):
 
 Ausgabe und Recycling derselben Sitzung:
 
-- `FC4` aus L+U: Karte nach vorne gebracht, vom Nutzer entnommen. Der Treiber meldete `HardwareTimeoutError` ("card did not reach user exit"), weil der Nutzer die Karte entnahm, bevor der Status als stabiles U gelesen wurde. Der Geraetezustand war erwartungsgemaess, das Problem liegt in der Wartebedingung des Treibers (siehe Folgerung unten).
+- `FC4` aus L+U: Karte nach vorne gebracht, vom Nutzer entnommen.
 - Neue Karte eingeschoben, Status stabil `0x0013` (L+U), UID aus L+U gelesen (8 Hex-Zeichen).
 - `CP` aus L+U: ACK, danach stabil `0x0014` (nur S), keine blockierenden Bits. Karte aus Leseposition und Ausgang verschwunden. Ablage in die Recyclingbox: Nutzer-Bestaetigung ausstehend.
-
-Folgerung fuer den Treiber:
-
-- `_wait_for_status` akzeptiert eine Bewegung erst, wenn der Zielzustand zweimal hintereinander gelesen wurde. Entnimmt der Nutzer die Karte schneller, laeuft das in einen Timeout, obwohl das Geraet korrekt gearbeitet hat. Der Service muss diesen Fall als "Karte entnommen, Zielzustand nicht bestaetigt" behandeln, nicht als Geraetefehler. Offen, nicht geaendert.

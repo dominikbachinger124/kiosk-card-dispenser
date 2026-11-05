@@ -29,7 +29,11 @@ def test_migrations_apply_once_and_are_idempotent(tmp_path: Path) -> None:
     finally:
         conn.close()
 
-    assert first == ["0001_initial.sql", "0002_device_fault.sql"]
+    assert first == [
+        "0001_initial.sql",
+        "0002_device_fault.sql",
+        "0003_device_fault_context.sql",
+    ]
     assert second == []
 
 
@@ -107,3 +111,34 @@ def test_foreign_key_violation_is_rejected(db_path: Path) -> None:
             )
     finally:
         conn.close()
+
+
+def test_migration_3_keeps_existing_faults_and_adds_context(tmp_path: Path) -> None:
+    """Existing device faults survive the table rebuild of migration 3."""
+    only_v2 = tmp_path / "migrations"
+    only_v2.mkdir()
+    for name in ("0001_initial.sql", "0002_device_fault.sql"):
+        (only_v2 / name).write_text((MIGRATIONS_DIR / name).read_text(encoding="utf-8"))
+
+    conn = connect(tmp_path / "x.db")
+    try:
+        migrate(conn, only_v2)
+        conn.execute(
+            "INSERT INTO device_faults (fault_code, raised_at) "
+            "VALUES ('CARD_JAMMED', '2026-11-05T10:00:00.000000Z')"
+        )
+    finally:
+        conn.close()
+
+    conn = connect(tmp_path / "x.db")
+    try:
+        migrate(conn, MIGRATIONS_DIR)
+        row = conn.execute(
+            "SELECT fault_code, account_id, card_id FROM device_faults"
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row["fault_code"] == "CARD_JAMMED"
+    assert row["account_id"] is None
+    assert row["card_id"] is None

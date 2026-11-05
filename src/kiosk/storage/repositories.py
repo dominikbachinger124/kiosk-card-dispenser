@@ -300,6 +300,8 @@ class DeviceFaultRepository:
         code: FaultCode,
         raised_at: datetime,
         session_id: str | None = None,
+        account_id: int | None = None,
+        card_id: int | None = None,
     ) -> DeviceFault:
         """Record a new open fault.
 
@@ -308,9 +310,10 @@ class DeviceFaultRepository:
         """
         try:
             cursor = self._conn.execute(
-                "INSERT INTO device_faults (fault_code, raised_at, session_id) "
-                "VALUES (?, ?, ?)",
-                (code.value, _ts(raised_at), session_id),
+                "INSERT INTO device_faults "
+                "(fault_code, raised_at, session_id, account_id, card_id) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (code.value, _ts(raised_at), session_id, account_id, card_id),
             )
         except sqlite3.IntegrityError as exc:
             # Only the open-fault index means "already open". Any other
@@ -325,6 +328,8 @@ class DeviceFaultRepository:
             code=code,
             raised_at=raised_at,
             session_id=session_id,
+            account_id=account_id,
+            card_id=card_id,
         )
 
     def open_fault(self) -> DeviceFault | None:
@@ -356,8 +361,8 @@ class DeviceFaultRepository:
 
 
 _FAULT_SELECT = (
-    "SELECT id, fault_code, raised_at, session_id, acknowledged_at, "
-    "acknowledged_audit_id FROM device_faults"
+    "SELECT id, fault_code, raised_at, session_id, account_id, card_id, "
+    "acknowledged_at, acknowledged_audit_id FROM device_faults"
 )
 
 
@@ -367,6 +372,8 @@ def _fault(row: sqlite3.Row) -> DeviceFault:
         code=FaultCode(row["fault_code"]),
         raised_at=_parse_required(row["raised_at"]),
         session_id=row["session_id"],
+        account_id=row["account_id"],
+        card_id=row["card_id"],
         acknowledged_at=_parse(row["acknowledged_at"]),
         acknowledged_audit_id=row["acknowledged_audit_id"],
     )

@@ -29,6 +29,9 @@ class DeviceFault:
         code: Fault category.
         raised_at: Time the fault was recorded, UTC.
         session_id: Session in which the fault occurred, if any.
+        account_id: Account affected by the stop, if it was known.
+        card_id: Card that caused the stop, if it was identified. The card is
+            only linked here; the fault never cancels it.
         acknowledged_at: Time of admin acknowledgement, UTC, or None while open.
         acknowledged_audit_id: Audit row that documents the acknowledgement.
     """
@@ -37,6 +40,8 @@ class DeviceFault:
     code: FaultCode
     raised_at: datetime
     session_id: str | None = None
+    account_id: int | None = None
+    card_id: int | None = None
     acknowledged_at: datetime | None = None
     acknowledged_audit_id: int | None = None
 

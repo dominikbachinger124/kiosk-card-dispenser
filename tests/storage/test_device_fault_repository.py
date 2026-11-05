@@ -125,3 +125,52 @@ def test_acknowledgement_requires_fault_ack_audit_row(
     with pytest.raises(sqlite3.IntegrityError), uow_factory.begin() as uow:
         uow.faults.acknowledge(fault.id, NOW, other_id)
         uow.commit()
+
+
+def test_fault_links_account_and_card(uow_factory: UnitOfWorkFactory) -> None:
+    with uow_factory.begin() as uow:
+        account = uow.accounts.add("a" * 64, NOW)
+        card = uow.cards.add("b" * 64, account.id, NOW)
+        fault = uow.faults.raise_fault(
+            FaultCode.CARD_JAMMED, NOW, account_id=account.id, card_id=card.id
+        )
+        uow.commit()
+
+    with uow_factory.begin() as uow:
+        loaded = uow.faults.open_fault()
+
+    assert loaded == fault
+    assert loaded is not None
+    assert (loaded.account_id, loaded.card_id) == (account.id, card.id)
+
+
+def test_fault_without_known_card_has_no_link(uow_factory: UnitOfWorkFactory) -> None:
+    with uow_factory.begin() as uow:
+        fault = uow.faults.raise_fault(FaultCode.DISPENSER_EMPTY, NOW)
+        uow.commit()
+
+    assert fault.account_id is None
+    assert fault.card_id is None
+
+
+def test_card_link_cannot_be_changed_after_the_fact(db_path: Path) -> None:
+    conn = connect(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO accounts (id_hash, created_at) VALUES (?, ?)",
+            ("c" * 64, "2026-11-05T10:00:00.000000Z"),
+        )
+        conn.execute(
+            "INSERT INTO cards (uid_hash, account_id, status, issued_at) "
+            "VALUES (?, 1, 'active', ?)",
+            ("d" * 64, "2026-11-05T10:00:00.000000Z"),
+        )
+        conn.execute(
+            "INSERT INTO device_faults (fault_code, raised_at) "
+            "VALUES ('CARD_JAMMED', ?)",
+            ("2026-11-05T10:00:00.000000Z",),
+        )
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute("UPDATE device_faults SET card_id = 1")
+    finally:
+        conn.close()

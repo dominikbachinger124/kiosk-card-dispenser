@@ -28,10 +28,10 @@ Jede K720-Karte hat eine UID, ist einem Konto zugeordnet und hat einen der Statu
 Das Hauptmenue bietet genau diese sieben Funktionen: **Neue Karte**, **Weitere Karte**, **Konto aufladen**, **Kontostand**, **Karte lesen**, **Karte recyceln**, **Bezahlen**.
 
 ### Neue Karte
-1. Ausweis einlesen (Pflicht), Kennung hashen und Konto finden oder anlegen.
+1. Ausweis am Flipper Zero einlesen (Pflicht), UID hashen und Konto finden oder anlegen. Die UID des vorgezeigten Chips ist die Kennung (MVP). Keine Namenseingabe, keine weiteren Ausweisdaten.
 2. Cooldown seit letzter Ausgabe derselben Ausweiskennung berechnen (24 Stunden).
 3. `cooldown_enforced=false` im MVP-Demo-Modus: verbleibende Zeit wird sichtbar angezeigt, die Nutzung wird jedoch nicht blockiert. Bei aktivierter Erzwingung wird waehrend der 24 Stunden nicht ausgegeben.
-4. Gatekeeper bestaetigt am Terminal, dass 25 EUR bar kassiert wurden. Ohne Bestaetigung kein Ausgabe-/Buchungsvorgang.
+4. Gatekeeper bestaetigt am Terminal, dass 25 EUR bar kassiert wurden. Die Zahlung erfolgt immer **vorher** (MVP). Ohne Bestaetigung kein Ausgabe-/Buchungsvorgang.
 5. Karte ausgeben, UID dem Konto zuordnen und 2000 Cent Guthaben plus 500 Cent Pfand buchen.
 6. Pro Session ist genau eine Karte erlaubt. Bei Fehlern Buchungen und Zuordnung transaktional konsistent halten; physische Teilerfolge protokollieren und Admin-Klaerung ermoeglichen.
 

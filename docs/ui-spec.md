@@ -11,14 +11,17 @@ Das Hauptmenue ist ein Orbit-Design: sieben grosse, touchfreundliche Eintraege k
 ## Ablaufe
 
 ### Neue Karte
-1. Auswahl -> Ausweis auflegen/lesen; Warteanzeige und Abbrechen.
-2. Konto erkannt/neu angelegt; Cooldown-Restzeit zeigen. Bei Demo `cooldown_enforced=false` ausdruecklich als Information anzeigen, dass die Nutzung nicht blockiert wird.
-3. 25-EUR-Bargeldhinweis; Gatekeeper muss Zahlung am Terminal bestaetigen. Cancel/Nein bricht ohne Ausgabe/Buchung ab.
-4. Ausgabe-Fortschritt, dann bestaetigte Ausgabe und Aufschluesselung 20 EUR Guthaben + 5 EUR Pfand.
-5. Fehler: klare Wiederherstellungshinweise, bei unklarem physischen Ergebnis Admin-Hilfe.
+Regel (MVP): Die 25 EUR sind **immer vorher** am Gatekeeper bar bezahlt worden. Der Gatekeeper bestaetigt dies am Terminal, bevor der Ablauf beginnt.
+
+1. Gatekeeper-Bestaetigung: 25 EUR bar sind gezahlt. Ohne Bestaetigung startet kein Ablauf, es erfolgt keine Hardwareaktion und keine Buchung. Cancel/Nein bricht ab.
+2. Auswahl -> Ausweis am Flipper Zero auflegen; Warteanzeige und Abbrechen.
+3. Kennung: Die UID des vorgezeigten Chips dient als Kennung (MVP). Keine Namenseingabe.
+4. Konto erkannt/neu angelegt; Cooldown-Restzeit zeigen. Bei Demo `cooldown_enforced=false` ausdruecklich als Information anzeigen, dass die Nutzung nicht blockiert wird.
+5. Ausgabe-Fortschritt, dann bestaetigte Ausgabe und Aufschluesselung 20 EUR Guthaben + 5 EUR Pfand.
+6. Fehler: klare Wiederherstellungshinweise, bei unklarem physischen Ergebnis Admin-Hilfe.
 
 ### Weitere Karte
-Konto aus dem bestehenden Flow auswaehlen/identifizieren; kein Cooldown-Dialog und keine Sperre. Gleicher 25-EUR-Barzahlungsdialog und Gatekeeper-Bestaetigung wie Neue Karte; gleiche Aufschluesselung, keine Preisabweichung.
+Konto aus dem bestehenden Flow auswaehlen/identifizieren; kein Cooldown-Dialog und keine Sperre. Gleiche Regel wie Neue Karte: Die 25 EUR sind vorher am Gatekeeper bezahlt und bestaetigt. Gleiche Aufschluesselung, keine Preisabweichung.
 
 ### Konto aufladen
 Ausweis lesen, 20-EUR-Festbetrag anzeigen, Barzahlung durch Gatekeeper bestaetigen lassen, bei Erfolg aktualisierten Kontostand zeigen. Keine Betragseingabe.

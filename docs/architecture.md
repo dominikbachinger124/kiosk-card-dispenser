@@ -22,11 +22,11 @@ Python-`Protocol`-Interfaces fuer Entkopplung. Vorgeschlagene Signaturen (Rueckg
 | Interface | Annahmesignaturen (vor Implementierung mit echtem Protokoll abgleichen) |
 |---|---|
 | `CardDispenser` | `issue_card() -> uid`, `read_card()`/`read_uid()`, `get_state()`/`poll()`, `return_card()`, `recycle_card()` |
-| `IdReader` | `read_id() -> str` |
+| `IdReader` | `read_id() -> str` (Flipper Zero, seriell) |
 
-Diese Methodennamen sind **Annahmen** und werden im Hardware-Task mit `docs/k720_protocol.md` abgeglichen; kein Protokollbefehl aus diesen Signaturen ableiten. `IdReader` ist USB-HID-Keyboard-Emulation mit Eingabepuffer und konfigurierbarem Device. Eingabe puffern, Laenge/Timeout begrenzen, Kennung nie im Klartext loggen. Fake-Implementierungen duerfen nur durch Tests injiziert werden; Betriebsprofil muss reale Hardware verlangen.
+Diese Methodennamen sind **Annahmen** und werden im Hardware-Task mit `docs/k720_protocol.md` abgeglichen; kein Protokollbefehl aus diesen Signaturen ableiten.
 
-Methodennamen sind **Annahmen** und werden im Hardware-Task mit `docs/k720_protocol.md` abgeglichen; kein Protokollbefehl aus diesen Signaturen ableiten. `IdReader` ist USB-HID-Keyboard-Emulation mit Eingabepuffer und konfigurierbarem Device. Eingabe puffern, Laenge/Timeout begrenzen, Kennung nie im Klartext loggen. Fake-Implementierungen duerfen nur durch Tests injiziert werden; Betriebsprofil muss reale Hardware verlangen.
+`IdReader` ist der **Flipper Zero** als Ausweisleser, angesprochen ueber den seriellen Port per CLI (`rfid read`, EM4100, 125 kHz). Adapter: `hardware/flipper_reader.py`. Kein USB-HID, kein PC/SC. Der Adapter liest nur die Kennung (UID), puffert die Eingabe, begrenzt Laenge und Timeout und loggt die Kennung nie im Klartext. Fake-Implementierungen duerfen nur durch Tests injiziert werden; das Betriebsprofil verlangt reale Hardware.
 
 ## Polling und Qt
 Ein dedizierter Worker-Thread pollt den K720, begrenzt IO-Timeouts und emittiert Qt-Signale, darunter `card_inserted`, an den GUI-Thread. GUI-Aenderungen ausschliesslich im GUI-Thread. Worker beendet sich kontrolliert beim Herunterfahren. Ein gemeinsamer Hardware-Zugriffskoordinator verhindert, dass Auto-Erkennung und interaktive Vorgang gleichzeitig Befehle senden. Bei Karteneinzug waehrend Screensaver `card_inserted` weckt UI und startet ReadCard/Balance-Flow.

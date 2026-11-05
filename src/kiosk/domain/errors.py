@@ -177,6 +177,12 @@ class AdminLockedError(KioskError):
     code = "ADMIN_LOCKED"
 
 
+class DeviceFaultAlreadyOpenError(KioskError):
+    """A device fault is already open; a second one cannot be recorded."""
+
+    code = "DEVICE_FAULT_OPEN"
+
+
 class AdminSessionExpiredError(KioskError):
     """The admin session timed out or was never opened."""
 

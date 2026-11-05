@@ -16,6 +16,7 @@ from kiosk.storage.repositories import (
     AccountRepository,
     AuditRepository,
     CardRepository,
+    DeviceFaultRepository,
     LedgerRepository,
     SessionRepository,
 )
@@ -32,6 +33,7 @@ class UnitOfWork:
     sessions: SessionRepository
     ledger: LedgerRepository
     audit: AuditRepository
+    faults: DeviceFaultRepository
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
@@ -40,6 +42,7 @@ class UnitOfWork:
         self.sessions = SessionRepository(conn)
         self.ledger = LedgerRepository(conn)
         self.audit = AuditRepository(conn)
+        self.faults = DeviceFaultRepository(conn)
         self._committed = False
 
     @property

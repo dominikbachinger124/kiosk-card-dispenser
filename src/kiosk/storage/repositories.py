@@ -13,10 +13,12 @@ from datetime import UTC, datetime
 from kiosk.domain.entities import Account, Card, CardStatus, Session
 from kiosk.domain.errors import (
     AccountClosedError,
+    DeviceFaultAlreadyOpenError,
     DuplicateOperationError,
     LedgerIntegrityError,
     NotFoundError,
 )
+from kiosk.domain.faults import DeviceFault, FaultCode
 from kiosk.domain.ledger import EntryType, LedgerEntry
 
 
@@ -265,12 +267,14 @@ class AuditRepository:
         outcome: str,
         account_id: int | None = None,
         detail: str | None = None,
-    ) -> None:
-        self._conn.execute(
+    ) -> int:
+        """Append one audit row and return its id."""
+        cursor = self._conn.execute(
             "INSERT INTO admin_audit "
             "(occurred_at, action, account_id, outcome, detail) VALUES (?, ?, ?, ?, ?)",
             (_ts(occurred_at), action, account_id, outcome, detail),
         )
+        return _require_id(cursor)
 
     def count_failed_logins(self, since: datetime) -> int:
         """Count failed admin logins at or after ``since``.
@@ -283,6 +287,89 @@ class AuditRepository:
             (_ts(since),),
         ).fetchone()
         return int(row["total"])
+
+
+class DeviceFaultRepository:
+    """Persistence for device faults. Rows are never deleted."""
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def raise_fault(
+        self,
+        code: FaultCode,
+        raised_at: datetime,
+        session_id: str | None = None,
+    ) -> DeviceFault:
+        """Record a new open fault.
+
+        Raises:
+            DeviceFaultAlreadyOpenError: If another fault is still open.
+        """
+        try:
+            cursor = self._conn.execute(
+                "INSERT INTO device_faults (fault_code, raised_at, session_id) "
+                "VALUES (?, ?, ?)",
+                (code.value, _ts(raised_at), session_id),
+            )
+        except sqlite3.IntegrityError as exc:
+            # Only the open-fault index means "already open". Any other
+            # constraint (e.g. an unknown session_id) is a real data error.
+            if "idx_device_faults_one_open" in str(exc):
+                raise DeviceFaultAlreadyOpenError(
+                    "a device fault is already open"
+                ) from exc
+            raise LedgerIntegrityError(_safe_db_message(str(exc))) from exc
+        return DeviceFault(
+            id=_require_id(cursor),
+            code=code,
+            raised_at=raised_at,
+            session_id=session_id,
+        )
+
+    def open_fault(self) -> DeviceFault | None:
+        """Return the currently open fault, or None if the device is clear."""
+        row = self._conn.execute(
+            _FAULT_SELECT + " WHERE acknowledged_at IS NULL"
+        ).fetchone()
+        return None if row is None else _fault(row)
+
+    def acknowledge(
+        self, fault_id: int, acknowledged_at: datetime, audit_id: int
+    ) -> DeviceFault:
+        """Mark an open fault as acknowledged, linked to its audit row.
+
+        Raises:
+            NotFoundError: If the fault does not exist or is already acknowledged.
+        """
+        cursor = self._conn.execute(
+            "UPDATE device_faults SET acknowledged_at = ?, acknowledged_audit_id = ? "
+            "WHERE id = ? AND acknowledged_at IS NULL",
+            (_ts(acknowledged_at), audit_id, fault_id),
+        )
+        if cursor.rowcount != 1:
+            raise NotFoundError(f"open device fault {fault_id} not found")
+        row = self._conn.execute(
+            _FAULT_SELECT + " WHERE id = ?", (fault_id,)
+        ).fetchone()
+        return _fault(row)
+
+
+_FAULT_SELECT = (
+    "SELECT id, fault_code, raised_at, session_id, acknowledged_at, "
+    "acknowledged_audit_id FROM device_faults"
+)
+
+
+def _fault(row: sqlite3.Row) -> DeviceFault:
+    return DeviceFault(
+        id=row["id"],
+        code=FaultCode(row["fault_code"]),
+        raised_at=_parse_required(row["raised_at"]),
+        session_id=row["session_id"],
+        acknowledged_at=_parse(row["acknowledged_at"]),
+        acknowledged_audit_id=row["acknowledged_audit_id"],
+    )
 
 
 _CARD_SELECT = (

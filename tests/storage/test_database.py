@@ -29,7 +29,7 @@ def test_migrations_apply_once_and_are_idempotent(tmp_path: Path) -> None:
     finally:
         conn.close()
 
-    assert first == ["0001_initial.sql"]
+    assert first == ["0001_initial.sql", "0002_device_fault.sql"]
     assert second == []
 
 

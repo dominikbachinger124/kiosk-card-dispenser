@@ -2,12 +2,11 @@
 
 Flow (domain.md "Neue Karte" / "Weitere Karte"):
 
-1. The gatekeeper confirms the 25 EUR cash. Without this nothing is done.
-2. The dispenser hands out a card (``DC``). Empty stock or a stop condition
+1. The dispenser hands out a card (``DC``). Empty stock or a stop condition
    aborts the flow, with a fault record and a notice.
-3. The user takes the card. The card is moved to the read position and its
+2. The user takes the card. The card is moved to the read position and its
    UID is read. The UID must be readable, otherwise the flow aborts.
-4. Only now are the account and card written and the 2000 cent balance and
+3. Only now are the account and card written and the 2000 cent balance and
    500 cent Pfand booked, in one transaction.
 
 No booking ever exists for a card whose UID was not read. Every abort ends
@@ -44,7 +43,6 @@ class IssueOutcome(StrEnum):
     """Result of an issue attempt."""
 
     ISSUED = "issued"
-    NOT_CONFIRMED = "not_confirmed"
     EMPTY = "empty"
     ABORTED = "aborted"
 
@@ -107,7 +105,6 @@ class IssueCardService:
     def issue(
         self,
         *,
-        gatekeeper_confirmed: bool,
         customer_uid_hash: str,
         existing_account_id: int | None = None,
     ) -> IssueResult:
@@ -119,9 +116,6 @@ class IssueCardService:
         dispensed card, not from this input.
 
         Args:
-            gatekeeper_confirmed: True only if the gatekeeper confirmed the
-                cash collection at the terminal. False aborts before any
-                hardware action.
             customer_uid_hash: Salted hash of the identifier that started the flow.
             existing_account_id: Account for an additional card, or None to
                 find or create the account by ``customer_uid_hash``.
@@ -129,8 +123,6 @@ class IssueCardService:
         Returns:
             The outcome. An abort never leaves a ledger entry or card row.
         """
-        if not gatekeeper_confirmed:
-            return IssueResult(IssueOutcome.NOT_CONFIRMED)
         session_id = uuid.uuid4().hex
         # The session row must exist before any fault can reference it
         # (device_faults.session_id is a foreign key). It is written in its

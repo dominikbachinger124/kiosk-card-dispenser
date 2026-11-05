@@ -11,20 +11,17 @@ Das Hauptmenue ist ein Orbit-Design: sieben grosse, touchfreundliche Eintraege k
 ## Ablaufe
 
 ### Neue Karte
-Regel (MVP): Die 25 EUR sind **immer vorher** am Gatekeeper bar bezahlt worden. Der Gatekeeper bestaetigt dies am Terminal, bevor der Ablauf beginnt.
-
-1. Gatekeeper-Bestaetigung: 25 EUR bar sind gezahlt. Ohne Bestaetigung startet kein Ablauf, es erfolgt keine Hardwareaktion und keine Buchung. Cancel/Nein bricht ab.
-2. Auswahl -> Ausweis am Flipper Zero auflegen; Warteanzeige und Abbrechen.
-3. Kennung: Die UID des vorgezeigten Chips dient als Kennung (MVP). Keine Namenseingabe.
-4. Konto erkannt/neu angelegt.
-5. Ausgabe-Fortschritt, dann bestaetigte Ausgabe und Aufschluesselung 20 EUR Guthaben + 5 EUR Pfand.
-6. Fehler: klare Wiederherstellungshinweise, bei unklarem physischen Ergebnis Admin-Hilfe.
+1. Auswahl -> Ausweis am Flipper Zero auflegen; Warteanzeige und Abbrechen.
+2. Kennung: Die UID des vorgezeigten Chips dient als Kennung (MVP). Keine Namenseingabe.
+3. Konto erkannt/neu angelegt.
+4. Ausgabe-Fortschritt, dann Ausgabe und Aufschluesselung 20 EUR Guthaben + 5 EUR Pfand.
+5. Fehler: klare Wiederherstellungshinweise, bei unklarem physischen Ergebnis Admin-Hilfe.
 
 ### Weitere Karte
-Konto aus dem bestehenden Flow auswaehlen/identifizieren; keine Sperre. Gleiche Regel wie Neue Karte: Die 25 EUR sind vorher am Gatekeeper bezahlt und bestaetigt. Gleiche Aufschluesselung, keine Preisabweichung.
+Konto aus dem bestehenden Flow auswaehlen/identifizieren; keine Sperre. Gleiche Aufschluesselung, keine Preisabweichung.
 
 ### Konto aufladen
-Ausweis lesen, 20-EUR-Festbetrag anzeigen, Barzahlung durch Gatekeeper bestaetigen lassen, bei Erfolg aktualisierten Kontostand zeigen. Keine Betragseingabe.
+Ausweis lesen, 20-EUR-Festbetrag anzeigen (vorab bar am Gatekeeper bezahlt), bei Erfolg aktualisierten Kontostand zeigen. Keine Betragseingabe.
 
 ### Kontostand
 Ausweis auflegen; Guthaben, Pfand-/Kartenuebersicht und Kontohistorie anzeigen. Aufstellung bezieht alle jemals ausgegebenen Karten ein und trennt aktive/offene, recycelte und gesperrte Karten.
@@ -46,7 +43,6 @@ Aktive Karte lesen, Demo/Dummy-Modus klar kennzeichnen. Betrag als ganze Cent bz
 | Karte unbekannt. Bitte Karte entnehmen. | Unknown card. Please remove the card. |
 | Karte gesperrt (gecancelt). | Card blocked (cancelled). |
 | Bitte Ausweis auflegen. | Please present your ID. |
-| Bitte Gatekeeper-Zahlung bestaetigen. | Please confirm cash payment, Gatekeeper. |
 | Zahlung nicht bestaetigt. Vorgang abgebrochen. | Payment not confirmed. Operation cancelled. |
 | Karte kann nicht gelesen werden. Bitte erneut versuchen. | Card could not be read. Please try again. |
 | Hardware nicht erreichbar. Bitte Gatekeeper informieren. | Hardware unavailable. Please contact the Gatekeeper. |

@@ -8,9 +8,9 @@ Tasks 00-04 abgeschlossen; Services und UI-Grundgeruest getestet. Lies `docs/dom
 
 ## Konkrete Schritte
 1. Flows: Neue Karte, Weitere Karte, Konto aufladen, Kontostand, Karte lesen, Karte recyceln, Bezahlen.
-2. Neue Karte: Ausweis als Pflicht. Gatekeeper bestaetigt 25 EUR; erst dann ausgeben/buchen.
-3. Weitere Karte: bestehendes Konto, aber identische 25-EUR-Bestaetigung und 2000+500-Cent-Zuordnung.
-4. Aufladung: immer 20 EUR und Gatekeeper-Bestaetigung. Kontostand fuer alle Kontokarten.
+2. Neue Karte: Ausweis als Pflicht. 25 EUR sind vorab bar am Gatekeeper bezahlt; erst dann ausgeben/buchen.
+3. Weitere Karte: bestehendes Konto, aber identische Vorab-Zahlung von 25 EUR und 2000+500-Cent-Zuordnung.
+4. Aufladung: immer 20 EUR, vorab bar am Gatekeeper bezahlt. Kontostand fuer alle Kontokarten.
 5. Karte lesen: Hinweis exakt `Bitte Karte einfuehren`; automatische Erkennung, unbekannt/gesperrt sofort auswerfen und exakte deutsche Fehlermeldungen.
 6. Recycling: User entscheidet Recyceln oder Zurueckgeben; nur erfolgreicher Recyclingvorgang gibt 5 EUR als Guthaben frei.
 7. Bezahlen: Demo klar kennzeichnen, Integer-Cent, Standard 200, Guthabenpruefung.
@@ -20,4 +20,4 @@ Tasks 00-04 abgeschlossen; Services und UI-Grundgeruest getestet. Lies `docs/dom
 Alle sieben Menuepunkte haben vollstaendige, nachvollziehbare Erfolgs- und Fehlerablaeufe. Keine Bestaetigung ueberspringbar; keine doppelten Serviceaufrufe oder Buchungen durch Mehrfach-Touch. Texte stimmen mit UI-Spezifikation ueberein.
 
 ## Tests
-pytest fuer ViewModel-Flows mit gemockten Services/Fakes, alle Abbruchpunkte, Sprachvarianten, Doppel-Touch, unbekannte/gesperrte Karten und Gatekeeper-Ablehnung. Manuelle Touchbedienung in Deutsch/Englisch; Gesamtsuite gruen.
+pytest fuer ViewModel-Flows mit gemockten Services/Fakes, alle Abbruchpunkte, Sprachvarianten, Doppel-Touch, unbekannte/gesperrte Karten. Manuelle Touchbedienung in Deutsch/Englisch; Gesamtsuite gruen.

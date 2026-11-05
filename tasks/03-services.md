@@ -7,8 +7,8 @@ Orchestriere Kartenausgabe, Aufladung, Anzeige, Recycling, Dummyzahlung, Auszahl
 Tasks 00 und 01 abgeschlossen; Task 02 Interfaces verfuegbar. Lies `docs/domain.md` und `docs/architecture.md`.
 
 ## Konkrete Schritte
-1. Baue einen gemeinsamen `IssueCardService` fuer erste und weitere Karte. Neue Karte verlangt Ausweis und Kontoermittlung. Weitere Karte verwendet bestehendes Konto. Beide erfordern Gatekeeper-Bestaetigung ueber 2500 Cent und buchen 2000 Guthaben + 500 Pfand, ordnen eine Karte zu und erlauben je Session nur eine Karte.
-2. `TopUpService`: Ausweis, exakt 2000 Cent, Gatekeeper-Bestaetigung, append-only Buchung.
+1. Baue einen gemeinsamen `IssueCardService` fuer erste und weitere Karte. Neue Karte verlangt Ausweis und Kontoermittlung. Weitere Karte verwendet bestehendes Konto. Beide setzen 2500 Cent vorab bar am Gatekeeper voraus und buchen 2000 Guthaben + 500 Pfand, ordnen eine Karte zu und erlauben je Session nur eine Karte.
+2. `TopUpService`: Ausweis, exakt 2000 Cent (vorab bar am Gatekeeper), append-only Buchung.
 3. `ReadBalanceService` und `ReadCardService`: alle Konto-Karten einbeziehen; unbekannte Karte sofort zurueckgeben mit exakt geforderter Meldung; cancelled zurueckgeben mit geforderter Meldung.
 4. `RecycleCardService`: Auswahl recycle/return, nur erfolgreich recycelte aktive Karte gibt 500 Cent Guthaben, Pfandsaldo -500, Status recycled; idempotent gegen Duplikate.
 5. `DummyPaymentService`: positiver Integer-Cent-Betrag, Default 200, niemals mehr als Kontoguthaben, append-only Zahlung.

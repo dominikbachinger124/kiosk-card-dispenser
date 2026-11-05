@@ -67,20 +67,10 @@ def _count(db_path: Path, table: str) -> int:
     return int(row["n"])
 
 
-def test_no_gatekeeper_confirmation_means_no_hardware_action(
-    service: IssueCardService, dispenser: FakeDispenser, db_path: Path
-) -> None:
-    result = service.issue(gatekeeper_confirmed=False, customer_uid_hash=CUSTOMER_HASH)
-
-    assert result.outcome is IssueOutcome.NOT_CONFIRMED
-    assert dispenser.calls == []
-    assert _count(db_path, "ledger") == 0
-
-
 def test_successful_issue_books_topup_and_deposit_after_read(
     service: IssueCardService, db_path: Path
 ) -> None:
-    result = service.issue(gatekeeper_confirmed=True, customer_uid_hash=CUSTOMER_HASH)
+    result = service.issue(customer_uid_hash=CUSTOMER_HASH)
 
     assert result.outcome is IssueOutcome.ISSUED
     assert result.card_id is not None
@@ -91,7 +81,7 @@ def test_successful_issue_books_topup_and_deposit_after_read(
 def test_new_card_hash_is_the_read_uid_not_the_customer_hash(
     service: IssueCardService, db_path: Path
 ) -> None:
-    service.issue(gatekeeper_confirmed=True, customer_uid_hash=CUSTOMER_HASH)
+    service.issue(customer_uid_hash=CUSTOMER_HASH)
 
     conn = connect(db_path)
     try:
@@ -108,7 +98,7 @@ def test_empty_stock_records_fault_and_books_nothing(
 ) -> None:
     dispenser.failures.append(DispenserEmptyError("stock empty"))
 
-    result = service.issue(gatekeeper_confirmed=True, customer_uid_hash=CUSTOMER_HASH)
+    result = service.issue(customer_uid_hash=CUSTOMER_HASH)
 
     assert result.outcome is IssueOutcome.EMPTY
     assert result.fault_id is not None
@@ -124,7 +114,7 @@ def test_jam_during_handout_aborts_without_booking(
 ) -> None:
     dispenser.failures.append(CardJammedError("jam"))
 
-    result = service.issue(gatekeeper_confirmed=True, customer_uid_hash=CUSTOMER_HASH)
+    result = service.issue(customer_uid_hash=CUSTOMER_HASH)
 
     assert result.outcome is IssueOutcome.ABORTED
     assert result.fault_id is not None
@@ -142,7 +132,7 @@ def test_unreadable_card_after_handout_aborts_without_booking(
     # The first call (issue_card) succeeds; the read position move fails.
     dispenser.failures.append(HardwareTimeoutError("no card at read position"))
 
-    result = service.issue(gatekeeper_confirmed=True, customer_uid_hash=CUSTOMER_HASH)
+    result = service.issue(customer_uid_hash=CUSTOMER_HASH)
 
     assert result.outcome is IssueOutcome.ABORTED
     assert _count(db_path, "ledger") == 0
@@ -157,7 +147,6 @@ def test_additional_card_uses_existing_account_without_new_account(
         uow.commit()
 
     result = service.issue(
-        gatekeeper_confirmed=True,
         customer_uid_hash=CUSTOMER_HASH,
         existing_account_id=account.id,
     )

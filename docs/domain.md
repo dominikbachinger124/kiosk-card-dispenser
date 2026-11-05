@@ -1,7 +1,7 @@
 # Fachliches Domänenmodell
 
 ## Zweck, Akteure und Zahlung
-Das MVP dient dem lokalen Kartenkiosk. Akteure sind **User** (nutzt Karte und Kiosk) sowie **Gatekeeper/Admin** (nimmt Bargeld entgegen, bestaetigt Zahlung und verwaltet Konten). Es gibt keine Online-Zahlung. Die Software nimmt kein Bargeld an und behauptet keine automatische Zahlungserkennung.
+Das MVP dient dem lokalen Kartenkiosk. Akteure sind **User** (nutzt Karte und Kiosk) sowie **Gatekeeper/Admin** (nimmt Bargeld entgegen, bestaetigt die Admin-Auszahlung und verwaltet Konten). Einzige Bestaetigung im Kiosk ist die Admin-Auszahlung und die Quittierung eines Fehlerfalls. Es gibt keine Online-Zahlung. Die Software nimmt kein Bargeld an und behauptet keine automatische Zahlungserkennung.
 
 Der Gatekeeper kassiert bei jeder Kartenausgabe bar **25 EUR = 2500 Cent je Karte**. Das Geld wird physisch beim Gatekeeper abgegeben. Die Software bucht es auf zwei getrennte Konten pro Nutzer:
 - **Guthabenkonto:** 2000 Cent je Karte (`cash_in_topup`), verfuegbar fuer Zahlungen.
@@ -11,7 +11,7 @@ Die Konten sind getrennte Kontensalden aus getrennten Ledgerbuchungen. Geld wird
 
 ## Konten und Ausweiskennung
 - Pro Nutzer genau ein Konto; Wiedererkennung erfolgt ueber den Hash der Ausweiskennung (Kartennummer/UID). Keine sonstigen Ausweisdaten erfassen.
-- Ausweis-Einlesen ist Pflicht fuer **Neue Karte**, **Konto aufladen**, **Kontostand** und Admin-Kontosuche. **Weitere Karte** verwendet das bereits gewaehlte/bekannte Konto und verlangt keinen erneuten Check; vor Durchfuehrung muss das Konto im Flow eindeutig ausgewaehlt bzw. durch den erforderlichen Gatekeeper-Schritt bestaetigt sein.
+- Ausweis-Einlesen ist Pflicht fuer **Neue Karte**, **Konto aufladen**, **Kontostand** und Admin-Kontosuche. **Weitere Karte** verwendet das bereits gewaehlte/bekannte Konto und verlangt keinen erneuten Check; vor Durchfuehrung muss das Konto im Flow eindeutig ausgewaehlt sein.
 - Guthaben kann sinken, jedoch nie negativ werden. Pro Konto gibt es ein Guthabenkonto und ein Fundkonto, nicht einen globalen Fundtopf. Das Fundkonto wird pro Nutzer gefuehrt, um Missbrauch durch konto-/kartenuebergreifende Verrechnung zu verhindern.
 - Fund +500 je ausgegebener Karte (neue oder weitere Karte). Guthaben +2000 je ausgegebener Karte.
 - Bei jedem Recycling einer dem Nutzer gehoerenden, registrierten Karte wandern 500 Cent vom Fundkonto auf das Guthabenkonto (`recycle_refund`). Die Karte wird auf `recycled` gesetzt.
@@ -29,15 +29,14 @@ Das Hauptmenue bietet genau diese sieben Funktionen: **Neue Karte**, **Weitere K
 
 ### Neue Karte
 1. Ausweis am Flipper Zero einlesen (Pflicht), UID hashen und Konto finden oder anlegen. Die UID des vorgezeigten Chips ist die Kennung (MVP). Keine Namenseingabe, keine weiteren Ausweisdaten.
-4. Gatekeeper bestaetigt am Terminal, dass 25 EUR bar kassiert wurden. Die Zahlung erfolgt immer **vorher** (MVP). Ohne Bestaetigung kein Ausgabe-/Buchungsvorgang.
-5. Karte ausgeben, UID dem Konto zuordnen und 2000 Cent Guthaben plus 500 Cent Pfand buchen.
-6. Pro Session ist genau eine Karte erlaubt. Bei Fehlern Buchungen und Zuordnung transaktional konsistent halten; physische Teilerfolge protokollieren und Admin-Klaerung ermoeglichen.
+2. Karte ausgeben, UID dem Konto zuordnen und 2000 Cent Guthaben plus 500 Cent Pfand buchen.
+3. Pro Session ist genau eine Karte erlaubt. Bei Fehlern Buchungen und Zuordnung transaktional konsistent halten; physische Teilerfolge protokollieren und Admin-Klaerung ermoeglichen.
 
 ### Weitere Karte
-Eigener Orbit-Eintrag. Aus bestehendem Konto heraus kann der Nutzer eine weitere Karte beziehen. Es gilt **derselbe Preis** wie bei der ersten: Gatekeeper bestaetigt 25 EUR bar, wovon 2000 Cent Guthaben und 500 Cent Pfand gebucht werden. Karte dem selben Konto zuordnen. Keine Preisermaessigung. Pro Session weiterhin nur eine Karte.
+Eigener Orbit-Eintrag. Aus bestehendem Konto heraus kann der Nutzer eine weitere Karte beziehen. Es gilt **derselbe Preis** wie bei der ersten: Die 25 EUR werden bar kassiert, wovon 2000 Cent Guthaben und 500 Cent Pfand gebucht werden. Karte dem selben Konto zuordnen. Keine Preisermaessigung. Pro Session weiterhin nur eine Karte.
 
 ### Konto aufladen
-Eigener Orbit-Eintrag. Ausweis lesen und Konto bestimmen. Aufladung ist immer genau **20 EUR = 2000 Cent**. Der Gatekeeper bestaetigt die Barzahlung; erst danach wird `cash_in_topup` gebucht. Kein frei waehlbarer Betrag.
+Eigener Orbit-Eintrag. Ausweis lesen und Konto bestimmen. Aufladung ist immer genau **20 EUR = 2000 Cent**. Die 20 EUR werden vorher bar am Gatekeeper bezahlt; danach wird `cash_in_topup` gebucht. Keine Bestaetigung im Kiosk. Kein frei waehlbarer Betrag.
 
 ### Kontostand
 Ausweis auflegen/einlesen; den Kontostand des zugeordneten Kontos anzeigen, einschliesslich des aktuellen Guthabens und geeigneter Pfand-/Karteninformationen. Es umfasst alle jemals ausgegebenen Karten dieses Kontos; Kartenhistorie mindestens nach Status unterscheiden.

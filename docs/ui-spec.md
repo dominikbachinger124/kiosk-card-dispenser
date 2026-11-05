@@ -54,5 +54,8 @@ Dynamische Werte zentral und sicher einsetzen, niemals ungefilterte Kennungen in
 ## Admin-Ansicht
 Zugang: Admin-Karte (konfigurierte UID, maximal zwei) und PIN. Erst nach beidem Panel freigeben. Konto per Ausweis suchen. Zeige Guthaben, Pfandsaldo, Anzahl ausgegebener/recycelter Karten, offene Karten und offenen Betrag. Bei Auszahlung Barzahlung/Gatekeeper-Aktion bestaetigen, Warnhinweis zu offenen Karten sichtbar und explizite finale Bestaetigung fordern; alle offenen Karten werden storniert und Guthaben auf null ausgezahlt. Abschluss mit Beleg-/Vorgangsnummer ohne persoenliche Daten. Audit-Ereignisse protokollieren.
 
+## Fehlerquittierung durch Admin
+Bei Kartenstau, Ueberlappung oder leerem Kartenvorrat stoppt der Kiosk. Das Display zeigt die Meldung (z. B. `Kartenstau`) und fordert zum Admin-Login auf. Der Admin meldet sich mit Admin-Karte und PIN an, oeffnet das Geraet, entfernt die Karte und quittiert den Fehler in der Software. Die Quittierung ist eine **Bestaetigung**: Erst danach startet der Kiosk wieder und gibt Ausgaben frei. Die Quittierung wird mit Zeit und Admin-Audit gespeichert (ohne PIN und ohne Ausweiskennung). Nach der Quittierung ist ein Pruefungslauf moeglich.
+
 ## Timeouts und Abbruch
 Inaktivitaet fuehrt nach konfigurierbarer Zeit in Screensaver (Startwert 60 Sekunden). Nichtkritische Dialoge koennen nach weiterem Timeout abbrechen; niemals Zahlung/Ausgabe still bestaetigen. Hardwarepolling laeuft weiter und hat definierte Zeitlimits. Bei Abbruch Zustand sicher schliessen, nicht gebuchte Vorgangsschritte verwerfen und keine Teilbuchung erzeugen.

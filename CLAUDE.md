@@ -79,7 +79,7 @@ tests/
 - **Repository pro Aggregat** ueber einer Unit of Work mit Transaktionsgrenze pro Service-Aufruf.
 - **Serielle IO im Worker-Thread** (`QThread`/`QObject` mit `moveToThread`), Ergebnisse ausschliesslich per Qt-Signal an den GUI-Thread. GUI-Objekte nur im GUI-Thread veraendern.
 - **Hardware-Zugriffskoordinator:** Polling und interaktive Befehle serialisieren (Lock/Queue).
-- **Clock-Interface** (`now() -> datetime` in UTC) statt `datetime.now()` im Code, damit Cooldown testbar ist.
+- **Clock-Interface** (`now() -> datetime` in UTC) statt `datetime.now()` im Code, damit Zeitstempel in Buchungen und Tests deterministisch sind.
 
 ## 5. Code Style
 ### Naming

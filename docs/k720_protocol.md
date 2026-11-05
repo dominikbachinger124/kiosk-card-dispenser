@@ -162,19 +162,22 @@ Befund (gemessen, nur selten reproduzierbar: bei `FC4` wird in seltenen Fällen 
 - `FC0` aus diesem Zustand (Messung vor dem Verbot, nicht wiederholen): ACK, danach `0x1056` (Vorbereitung, Ueberlappung bleibt). Ausgabefehler-Bit weg. Ob dabei eine Karte ausgeworfen wurde, ist nicht gemessen.
 - Danach stabil `0x0054` (Ueberlappung, Vorrat-Warnung, Stapel belegt). Keine Leseposition, kein Ausgang.
 
-Behandlung Kartenstau (gilt für Dreifachbelegung `0x0007`/`0x0017`):
+Fehlerfälle und Behandlung (gilt für alle Fehlerfälle unten gleich):
+
+Fehlerfall Kartenstau (`CardJammedError`, Code `CARD_JAMMED`): Sensor Stapel und Sensor Lesen gleichzeitig belegt (S+L, `0x0006`), bzw. Dreifachbelegung `0x0007`/`0x0017`.
+
+Fehlerfall Überlappung (`CardOverlapError`, Code `CARD_OVERLAP`): Überlappungsbit `0x0040` gesetzt, z. B. `0x0054` (Überlappung, Vorrat-Bit, Sensor Stapel) oder `0x0257`.
+
+Ablauf:
 
 1. Stabil U+S erkannt (`0x0005` bzw. `0x0015`): Ausgabe pausieren, keine Befehle senden, Status weiter lesen.
-2. Danach prüfen, ob S+L vorliegt (Sensor Lesen und Sensor Stapel belegt, Kartenstau).
-3. Stau liegt vor: Gerät stoppt vollständig. Das Display zeigt "Kartenstau" und fordert zum Admin-Login auf.
-4. Admin meldet sich mit Admin-Karte und Admin-PIN an. Erst dann gilt die Person als Admin am Gerät.
-5. Admin öffnet das Gerät, drückt den roten Knopf und entfernt den Stau.
-6. Admin quittiert den Fehler in der Software. Erst danach darf `AP` wieder als regulär gelten und die Ausgabe starten.
-7. Nach der Quittierung ist ein Prüflauf möglich.
+2. Fehlerfall erkannt (Kartenstau oder Überlappung): Gerät stoppt vollständig. Das Display zeigt "Kartenstau" und fordert zum Admin-Login auf.
+3. Admin meldet sich mit Admin-Karte und Admin-PIN an. Erst dann gilt die Person als Admin am Gerät.
+4. Admin öffnet das Gerät, drückt den roten Knopf und entfernt den Stau.
+5. Admin quittiert den Fehler in der Software. Erst danach darf `AP` wieder als regulär gelten und die Ausgabe starten.
+6. Nach der Quittierung ist ein Prüflauf möglich.
 
 `FC0` ist verboten (Abschnitt 8). `RS` ist kein Ersatz für den roten Knopf. Die Software gibt keine Ausgabe frei, solange der Fehler nicht quittiert ist.
-
-Fehlerzustand Überlappung `0x0054` (Überlappung, Vorrat-Bit, Sensor Stapel): eigener Fehlerzustand, kein Teil der Dreifachbelegung. Er führt ebenfalls zum vollständigen Stillstand. Es gelten dieselben Schritte 3 bis 7 (Kartenstau-Anzeige, Admin-Login mit Karte und PIN, roter Knopf, Quittierung, Prüflauf).
 
 Weitere Messungen in derselben Sitzung:
 

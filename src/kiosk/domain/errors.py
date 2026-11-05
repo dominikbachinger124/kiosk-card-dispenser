@@ -105,13 +105,20 @@ class PortLostError(HardwareError):
 
 
 class CardJammedError(HardwareError):
-    """A card is stuck in the dispenser."""
+    """Card jam: stack and read position are occupied together (S+L).
+
+    Stops the device. Recovery is manual: admin login, red button, removal,
+    then confirmation in the software.
+    """
 
     code = "CARD_JAMMED"
 
 
 class CardOverlapError(HardwareError):
-    """Two cards overlap in the dispenser."""
+    """Card overlap (overlap bit 0x0040). Stops the device like a jam.
+
+    Recovery is the same admin procedure as for ``CardJammedError``.
+    """
 
     code = "CARD_OVERLAP"
 

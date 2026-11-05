@@ -34,13 +34,15 @@ Vor Implementierung lesen: `docs/domain.md`, `docs/architecture.md`, `docs/ui-sp
 | Paketmanager | uv (`pyproject.toml` + `uv.lock`) | aktuelle uv-Version, Update via `uv self update` | Systeminstallation, nicht im Projekt |
 | GUI | PySide6 (Qt for Python) mit QML | 6.12.x (PyPI: 6.12.0) | `uv add pyside6` |
 | Datenbank | SQLite via stdlib `sqlite3`, WAL, `foreign_keys=ON` | stdlib | entfaellt |
-| Hardware | pyserial (K720, RS-232/USB-to-Serial) | 3.5 | `uv add pyserial` |
+| Hardware | pyserial (K720, RS-232/USB-to-Serial; Flipper Zero als Ausweisleser ueber serielle CLI) | 3.5 | `uv add pyserial` |
 | Tests | pytest | 9.x (PyPI: 9.2.0) | `uv add --dev pytest` |
 | Lint/Format | ruff (lint + format) | 0.x (PyPI: 0.17.3) | `uv add --dev ruff` |
 | Typen | mypy | 2.x (PyPI: 2.4.1) | `uv add --dev mypy` |
 | Logging | stdlib `logging` mit eigenem JSON-Formatter | stdlib | entfaellt |
 
 Exakte Versionen stehen ausschliesslich in `uv.lock`; die Tabelle dokumentiert nur den Stand bei der Recherche. Aenderungen nur ueber `uv add` bzw. `uv add --dev`, danach `uv.lock` committen. Keine zusaetzlichen Runtime-Abhaengigkeiten ohne Begruendung in der Commit-Nachricht.
+
+- **Ausweisleser (Kunde und Admin):** Flipper Zero ueber seriellen Port (`rfid read`, EM4100, 125 kHz), Adapter `hardware/flipper_reader.py`. Kein USB-HID, kein PC/SC (`pyscard` ist nicht Teil des Projekts). SCL011 ist ungeeignet (liefert Zufalls-UIDs).
 
 - **Qt-Plattform:** Qt waehlt Wayland oder X11 automatisch. Diagnose: `echo $XDG_SESSION_TYPE`.
 - **Sprachen:** Deutsch (Standard) und Englisch ueber `i18n/` (Qt-Uebersetzung oder zentrale Dictionary-Dateien). Keine verstreuten UI-Texte.

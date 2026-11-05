@@ -163,12 +163,51 @@ def test_jammed_card_stops_the_flow_with_typed_error() -> None:
     assert info.value.code == "CARD_JAMMED"
 
 
-def test_overlapping_cards_raise_typed_error() -> None:
+def test_overlap_that_persists_raises_overlap_error_without_dc() -> None:
+    """Overlap still set after the settle window is an overlap fault (10.1)."""
     link = ScriptedLink()
-    link.queue(*handshake(status_frame(BIT_CARD_OVERLAP)))
+    link.queue(
+        *[
+            chunk
+            for _ in range(10)
+            for chunk in handshake(status_frame(BIT_CARD_OVERLAP | BIT_SENSOR_STACK))
+        ],
+    )
 
     with pytest.raises(CardOverlapError):
         _driver(link, FakeClock()).issue_card()
+
+    assert b"DC" not in _sent_commands(link)
+
+
+def test_overlap_that_clears_to_normal_stack_state_continues() -> None:
+    """Overlap alone is not a fault: S after the window lets the flow go on."""
+    link = ScriptedLink()
+    link.queue(
+        *handshake(status_frame(BIT_CARD_OVERLAP | BIT_SENSOR_STACK)),  # pre-check
+        *handshake(status_frame(BIT_SENSOR_STACK)),  # settle: overlap cleared
+        *handshake(),  # DC
+        *handshake(status_frame(BIT_SENSOR_USER)),  # reached user exit
+        *handshake(status_frame(BIT_SENSOR_USER)),  # stable (section 4)
+    )
+
+    _driver(link, FakeClock()).issue_card()
+
+    assert b"DC" in _sent_commands(link)
+
+
+def test_overlap_that_turns_into_stack_and_read_jam_is_a_jam() -> None:
+    """Overlap followed by S+L within the window is a card jam, not overlap."""
+    link = ScriptedLink()
+    link.queue(
+        *handshake(status_frame(BIT_CARD_OVERLAP | BIT_SENSOR_STACK)),
+        *handshake(status_frame(BIT_SENSOR_STACK | BIT_SENSOR_READ)),
+    )
+
+    with pytest.raises(CardJammedError):
+        _driver(link, FakeClock()).issue_card()
+
+    assert b"DC" not in _sent_commands(link)
 
 
 def test_status_that_never_settles_times_out() -> None:

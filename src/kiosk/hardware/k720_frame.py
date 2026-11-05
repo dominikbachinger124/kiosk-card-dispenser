@@ -34,10 +34,11 @@ BIT_PREPARING = 0x1000
 BIT_COMMAND_REJECTED = 0x4000
 
 # Bits that stop the flow before a command is sent (section 9, step 1).
+# Overlap (0x0040) is not listed: it is only transient evidence of a possible
+# jam and is judged by the driver after a settle window (protocol 10.1).
 BLOCKING_BITS = (
     BIT_DISPENSE_ERROR,
     BIT_RECORD_ERROR,
-    BIT_CARD_OVERLAP,
     BIT_CARD_STUCK,
     BIT_STOCK_EMPTY,
 )

@@ -50,6 +50,9 @@ logger = logging.getLogger("kiosk.hardware.k720")
 K720_BAUDRATE = 9600
 STATUS_POLL_INTERVAL_S = 0.2
 MOVEMENT_SETTLE_S = 1.0
+# Window after an overlap bit in which the driver waits for the normal stack
+# state or a jam pattern (protocol 10.1). Value is an assumption to measure.
+OVERLAP_SETTLE_S = 1.0
 HANDSHAKE_GAP_S = 0.05
 RESPONSE_TIMEOUT_S = 2.0
 READ_RETRY_INTERVAL_S = 0.01
@@ -263,7 +266,35 @@ class K720Dispenser:
         status = self._read_status()
         if status.blocking_bits_set() or status.jam_by_sensors():
             raise _blocking_error(status)
+        if status.raw & BIT_CARD_OVERLAP:
+            status = self._settle_overlap()
         return status
+
+    def _settle_overlap(self) -> DeviceStatus:
+        """Judge an overlap bit by polling for the normal stack state.
+
+        Overlap alone is not a fault: the user may still take the card at the
+        exit. Within ``OVERLAP_SETTLE_S`` the driver polls for the normal state
+        (stack only). S+L or three sensors is a jam. Overlap that stays set
+        after the window is an overlap fault.
+
+        Raises:
+            CardJammedError: If the sensors show a jam during the window.
+            CardOverlapError: If overlap is still set after the window.
+        """
+        deadline = self._clock() + OVERLAP_SETTLE_S
+        while True:
+            status = self._read_status()
+            if status.blocking_bits_set() or status.jam_by_sensors():
+                raise _blocking_error(status)
+            if not status.raw & BIT_CARD_OVERLAP:
+                return status
+            if self._clock() >= deadline:
+                logger.error(
+                    "k720_overlap_not_cleared",
+                    extra={"error_code": "CARD_OVERLAP"},
+                )
+                raise CardOverlapError("cards overlap")
 
     def _wait_for_status(
         self,
@@ -285,6 +316,9 @@ class K720Dispenser:
             status = self._read_status()
             if status.blocking_bits_set() or status.jam_by_sensors():
                 raise _blocking_error(status)
+            if status.raw & BIT_CARD_OVERLAP:
+                # Overlap during a movement: judge it like before a command.
+                status = self._settle_overlap()
             if status.command_rejected:
                 # Transient (section 6): the status is not final, so poll again.
                 previous = None

@@ -76,7 +76,7 @@ Antworten mit Fehlerbit: Ein Befehl, der nicht ausgeführt werden kann, erzeugt 
 | `0x0200` | Fehler bei Ausgabe                            | blockierend, typisierter Fehler            |
 | `0x0100` | Fehler bei Ablage                             | blockierend, typisierter Fehler            |
 | `0x0080` | No captured card (Name laut Handbuch)         | nicht ausgewertet                          |
-| `0x0040` | Karte überlappt                               | blockierend, typisierter Fehler            |
+| `0x0040` | Karte überlappt                               | nicht sofort blockierend: 1 s Nachprüfung auf S (Normal) bzw. S+L (Stau), siehe 10.1 |
 | `0x0020` | Karte klemmt                                  | blockierend, typisierter Fehler            |
 | `0x0010` | Vorrat unter Schwelle (Warnung)               | Warnung in der UI, nicht blockierend       |
 | `0x0008` | Vorrat leer (Zustand, kein Sensor)            | harter Stopp, keine Ausgabe                |
@@ -133,7 +133,7 @@ Hinweise zur Matrix:
 
 ## 9. Ablauf Ausgabe (Empfehlung)
 
-1. `AP` lesen. Blockierende Bits (`0x0200`, `0x0100`, `0x0040`, `0x0020`, `0x0008`) prüfen, bei Treffer Fehler werfen, kein Befehl.
+1. `AP` lesen. Blockierende Bits (`0x0200`, `0x0100`, `0x0020`, `0x0008`) und Stau-Sensormuster (S+L, U+L+S) prüfen, bei Treffer Fehler werfen, kein Befehl. Bei Overlap (`0x0040`) 1 s nachprüfen (siehe 10.1).
 2. `DC` senden (ACK, ENQ).
 3. `AP` im Abstand von mindestens 200 ms lesen, bis stabil. Ergebnis Sensor User (`0x0001`) ist das Ziel.
 4. Karte vom Nutzer entnehmen lassen (Sensor User wieder frei).
@@ -166,12 +166,18 @@ Fehlerfälle und Behandlung (gilt für alle Fehlerfälle unten gleich):
 
 Fehlerfall Kartenstau (`CardJammedError`, Code `CARD_JAMMED`): Sensor Stapel und Sensor Lesen gleichzeitig belegt (S+L, `0x0006`), bzw. Dreifachbelegung `0x0007`/`0x0017`.
 
-Fehlerfall Überlappung (`CardOverlapError`, Code `CARD_OVERLAP`): Überlappungsbit `0x0040` gesetzt, z. B. `0x0054` (Überlappung, Vorrat-Bit, Sensor Stapel) oder `0x0257`.
+Überlappung (Bit `0x0040`) ist für sich kein Fehler. Die Karte kann am Ausgang noch vom Nutzer entnommen werden. Der Treiber prüft deshalb nach dem Erkennen von Overlap ca. 1 s lang (Polls alle 200 ms):
+
+- Normalzustand Sensor Stapel (S allein) erscheint: Overlap ist geklärt, der Ablauf läuft weiter.
+- S+L oder U+L+S erscheint: Kartenstau (`CardJammedError`, Code `CARD_JAMMED`).
+- Overlap bleibt nach dem Fenster gesetzt: Überlappungsfehler (`CardOverlapError`, Code `CARD_OVERLAP`).
+
+Die Fensterlänge (1 s) ist eine Annahme und muss am Gerät gemessen werden. Die Wahrscheinlichkeit, dass auf Overlap S+L folgt, wird auf etwa 50 % geschaetzt (Einschaetzung des Projektteams, nicht gemessen).
 
 Ablauf:
 
 1. Stabil U+S erkannt (`0x0005` bzw. `0x0015`): Ausgabe pausieren, keine Befehle senden, Status weiter lesen.
-2. Fehlerfall erkannt (Kartenstau oder Überlappung): Gerät stoppt vollständig. Das Display zeigt "Kartenstau" und fordert zum Admin-Login auf.
+2. Stau oder bleibende Überlappung erkannt: Gerät stoppt vollständig. Das Display zeigt "Kartenstau" und fordert zum Admin-Login auf.
 3. Admin meldet sich mit Admin-Karte und Admin-PIN an. Erst dann gilt die Person als Admin am Gerät.
 4. Admin öffnet das Gerät, drückt den roten Knopf und entfernt den Stau.
 5. Admin quittiert den Fehler in der Software. Erst danach darf `AP` wieder als regulär gelten und die Ausgabe starten.

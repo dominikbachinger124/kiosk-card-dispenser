@@ -456,3 +456,38 @@ def test_move_to_read_position_refused_from_user_and_read() -> None:
         _driver(link, FakeClock()).move_card_to_read_position()
 
     assert b"FC7" not in _sent_commands(link)
+
+
+def test_stack_and_read_position_together_is_a_jam() -> None:
+    """Protocol 10.1: S+L (0x0006) means a card jam, even without the stuck bit."""
+    link = ScriptedLink()
+    link.queue(*handshake(status_frame(BIT_SENSOR_STACK | BIT_SENSOR_READ)))
+
+    with pytest.raises(CardJammedError) as info:
+        _driver(link, FakeClock()).issue_card()
+
+    assert info.value.code == "CARD_JAMMED"
+
+
+def test_all_three_sensors_together_is_a_jam() -> None:
+    """Protocol 10.1: Dreifachbelegung U+L+S (0x0007) is a jam."""
+    link = ScriptedLink()
+    link.queue(
+        *handshake(status_frame(BIT_SENSOR_USER | BIT_SENSOR_READ | BIT_SENSOR_STACK)),
+    )
+
+    with pytest.raises(CardJammedError):
+        _driver(link, FakeClock()).issue_card()
+
+    assert b"DC" not in _sent_commands(link)
+
+
+def test_stock_empty_while_issuing_raises_no_dc() -> None:
+    """Empty stock (0x0008) must stop before DC, even if other bits are clear."""
+    link = ScriptedLink()
+    link.queue(*handshake(status_frame(BIT_STOCK_EMPTY | BIT_SENSOR_STACK)))
+
+    with pytest.raises(DispenserEmptyError):
+        _driver(link, FakeClock()).issue_card()
+
+    assert b"DC" not in _sent_commands(link)

@@ -261,7 +261,7 @@ class K720Dispenser:
 
     def _check_before_command(self) -> DeviceStatus:
         status = self._read_status()
-        if status.blocking_bits_set():
+        if status.blocking_bits_set() or status.jam_by_sensors():
             raise _blocking_error(status)
         return status
 
@@ -283,7 +283,7 @@ class K720Dispenser:
         previous: DeviceStatus | None = None
         while self._clock() < deadline:
             status = self._read_status()
-            if status.blocking_bits_set():
+            if status.blocking_bits_set() or status.jam_by_sensors():
                 raise _blocking_error(status)
             if status.command_rejected:
                 # Transient (section 6): the status is not final, so poll again.
@@ -366,7 +366,7 @@ def _blocking_error(status: DeviceStatus) -> HardwareError:
         return DispenserEmptyError("stock empty")
     if status.raw & BIT_CARD_OVERLAP:
         return CardOverlapError("cards overlap")
-    if status.raw & BIT_CARD_STUCK:
+    if status.raw & BIT_CARD_STUCK or status.jam_by_sensors():
         return CardJammedError("card is stuck")
     if status.raw & (BIT_DISPENSE_ERROR | BIT_RECORD_ERROR):
         return DispenserStateError("dispense or record error reported")

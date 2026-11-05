@@ -141,6 +141,16 @@ class DeviceStatus:
         """Return True if any bit that forbids a new command is set."""
         return any(self.raw & bit for bit in BLOCKING_BITS)
 
+    def jam_by_sensors(self) -> bool:
+        """Return True if the sensor pattern is a jam (protocol section 10.1).
+
+        Stack and read position together (S+L) is a jam. So is all three
+        sensors together (U+L+S). The status bits alone do not show a jam
+        reliably, so the sensor pattern is checked as well.
+        """
+        stack_and_read = self.stack_occupied and self.read_position_occupied
+        return stack_and_read or self.raw & 0x0007 == 0x0007
+
 
 def parse_status_payload(payload: bytes) -> DeviceStatus:
     """Parse the answer to ``AP``: ``SF`` followed by four hex digits.

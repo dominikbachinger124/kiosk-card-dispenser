@@ -41,8 +41,9 @@ def test_topup_credits_balance_without_deposit() -> None:
 
 
 def test_issue_deposit_adds_pfand() -> None:
-    entry = _make(EntryType.CASH_IN_DEPOSIT, 0 + 500, 500)
+    entry = _make(EntryType.CASH_IN_DEPOSIT, 0, 500)
 
+    assert entry.amount_cents == 0  # Fund does not count as spendable balance
     assert entry.deposit_delta_cents == 500
 
 
@@ -77,7 +78,8 @@ def test_card_cancel_moves_no_money() -> None:
     [
         (EntryType.CASH_IN_TOPUP, -2000, 0),  # topup must credit
         (EntryType.CASH_IN_TOPUP, 2000, 500),  # topup must not touch deposit
-        (EntryType.CASH_IN_DEPOSIT, 500, 0),  # deposit must raise Pfand
+        (EntryType.CASH_IN_DEPOSIT, 500, 500),  # deposit must not add to balance
+        (EntryType.CASH_IN_DEPOSIT, 0, 0),  # deposit must raise Pfand
         (EntryType.RECYCLE_REFUND, 500, 500),  # recycling must lower Pfand
         (EntryType.PAYMENT, 200, 0),  # payment must debit
         (EntryType.PAYOUT, -100, 100),  # payout must not change Pfand

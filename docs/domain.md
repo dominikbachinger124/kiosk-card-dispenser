@@ -3,13 +3,19 @@
 ## Zweck, Akteure und Zahlung
 Das MVP dient dem lokalen Kartenkiosk. Akteure sind **User** (nutzt Karte und Kiosk) sowie **Gatekeeper/Admin** (nimmt Bargeld entgegen, bestaetigt Zahlung und verwaltet Konten). Es gibt keine Online-Zahlung. Die Software nimmt kein Bargeld an und behauptet keine automatische Zahlungserkennung.
 
-Der Gatekeeper kassiert bei jeder Kartenausgabe bar **25 EUR = 2500 Cent je Karte**. Das wird als **2000 Cent Guthaben** (`cash_in_topup`) und **500 Cent Pfand** (`cash_in_deposit`) gebucht. Die Bestandteile sind getrennte Ledgerbuchungen und Kontensalden. Geld wird intern ausschliesslich als Integer-Cent gerechnet.
+Der Gatekeeper kassiert bei jeder Kartenausgabe bar **25 EUR = 2500 Cent je Karte**. Das Geld wird physisch beim Gatekeeper abgegeben. Die Software bucht es auf zwei getrennte Konten pro Nutzer:
+- **Guthabenkonto:** 2000 Cent je Karte (`cash_in_topup`), verfuegbar fuer Zahlungen.
+- **Fundkonto:** 500 Cent je Karte (`cash_in_deposit`), das Pfand fuer die Karte. Es ist kein verfuegbares Guthaben.
+
+Die Konten sind getrennte Kontensalden aus getrennten Ledgerbuchungen. Geld wird intern ausschliesslich als Integer-Cent gerechnet.
 
 ## Konten und Ausweiskennung
 - Pro Nutzer genau ein Konto; Wiedererkennung erfolgt ueber den Hash der Ausweiskennung (Kartennummer/UID). Keine sonstigen Ausweisdaten erfassen.
 - Ausweis-Einlesen ist Pflicht fuer **Neue Karte**, **Konto aufladen**, **Kontostand** und Admin-Kontosuche. **Weitere Karte** verwendet das bereits gewaehlte/bekannte Konto und verlangt keinen erneuten Cooldown-Check; vor Durchfuehrung muss das Konto im Flow eindeutig ausgewaehlt bzw. durch den erforderlichen Gatekeeper-Schritt bestaetigt sein.
-- Guthaben kann sinken, jedoch nie negativ werden. Es gibt pro Konto ein Pfand-Ledger (bzw. einen aus unveraenderlichen Ledgerbuchungen abgeleiteten Pfandsaldo), nicht einen globalen Pfandtopf.
-- Pfand +500 je zugeordneter ausgegebener Karte; Pfand -500 je recycelter Karte. Beim Recycling wird der Betrag als `recycle_refund` dem Guthaben gutgeschrieben. Pfand wird pro Nutzer gefuehrt, um Missbrauch durch konto-/kartenuebergreifende Verrechnung zu verhindern.
+- Guthaben kann sinken, jedoch nie negativ werden. Pro Konto gibt es ein Guthabenkonto und ein Fundkonto, nicht einen globalen Fundtopf. Das Fundkonto wird pro Nutzer gefuehrt, um Missbrauch durch konto-/kartenuebergreifende Verrechnung zu verhindern.
+- Fund +500 je ausgegebener Karte (neue oder weitere Karte). Guthaben +2000 je ausgegebener Karte.
+- Bei jedem Recycling einer dem Nutzer gehoerenden, registrierten Karte wandern 500 Cent vom Fundkonto auf das Guthabenkonto (`recycle_refund`). Die Karte wird auf `recycled` gesetzt.
+- Die Auszahlung des Restguthabens erfolgt nur ueber den Admin (siehe Admin und Auszahlung). Sie ist unabhaengig vom Recycling-Ablauf des Nutzers.
 
 ## Karten und Status
 Jede K720-Karte hat eine UID, ist einem Konto zugeordnet und hat einen der Statuswerte `active`, `recycled` oder `cancelled` (gesperrt). Der Statuswechsel und seine Ursache werden nachvollziehbar gespeichert. Recycelte und stornierte Karten duerfen nicht als aktive Zahlungsmittel verwendet werden.
@@ -42,7 +48,7 @@ Ausweis auflegen/einlesen; den Kontostand des zugeordneten Kontos anzeigen, eins
 Hinweis exakt: `Bitte Karte einfuehren`. Gelesene aktive Karte identifiziert das Konto; Guthaben und relevanter Karten-/Kontostatus werden angezeigt. Unbekannte oder gesperrte Karte gemaess den obigen Regeln sofort zurueckgeben.
 
 ### Karte recyceln
-User wird gefragt, was mit der Karte geschehen soll. Bei **Recyceln** wird die Karte vom K720 eingezogen und in den Sammelbehaelter recycelt. Nur bei erfolgreichem Recycling einer aktiven Karte werden 500 Cent Pfand auf das Guthaben gutgeschrieben (`recycle_refund`), das Pfand-Ledger sinkt um 500 und die Karte wird `recycled`. Nicht recycelbare Karte erzeugt keine Gutschrift. Doppeltes Recycling darf nicht erneut gutschreiben. (Eine Rueckgabe-Option behaelt die Karte beim User und loest keine Gutschrift aus.)
+User wird gefragt, was mit der Karte geschehen soll. Bei **Recyceln** wird die Karte vom K720 eingezogen und in den Sammelbehaelter recycelt. Nur bei erfolgreichem Recycling einer aktiven Karte werden 500 Cent vom Fundkonto auf das Guthabenkonto gebucht (`recycle_refund`), das Fundkonto sinkt um 500 und die Karte wird `recycled`. Nicht recycelbare Karte erzeugt keine Gutschrift. Doppeltes Recycling darf nicht erneut gutschreiben. (Eine Rueckgabe-Option behaelt die Karte beim User und loest keine Gutschrift aus.)
 
 ### Bezahlen (Demo/Dummy)
 Karte im K720 ist das Zahlungsmittel. Demo-Abbuchung eines beliebigen, vom Flow eingegebenen Integer-Cent-Betrags; Standard z.B. 200 Cent. Betrag muss positiv sein und darf das verfuegbare Guthaben nicht uebersteigen. Bei Erfolg append-only `payment`-Buchung. Kein negativer Kontostand. Als Demo-Funktion klar kennzeichnen.

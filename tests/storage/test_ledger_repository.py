@@ -63,13 +63,14 @@ def test_entries_are_stored_and_balances_summed(
             _entry(account_id, now, EntryType.CASH_IN_TOPUP, 2000, 0, "op-1")
         )
         uow.ledger.append(
-            _entry(account_id, now, EntryType.CASH_IN_DEPOSIT, 500, 500, "op-2")
+            _entry(account_id, now, EntryType.CASH_IN_DEPOSIT, 0, 500, "op-2")
         )
         uow.ledger.append(_entry(account_id, now, EntryType.PAYMENT, -200, 0, "op-3"))
         uow.commit()
 
     with uow_factory.begin() as uow:
-        assert uow.ledger.balance_cents(account_id) == 2300
+        # Topup 2000 - payment 200; the Fund of 500 is not spendable balance.
+        assert uow.ledger.balance_cents(account_id) == 1800
         assert uow.ledger.deposit_cents(account_id) == 500
 
 
@@ -98,9 +99,7 @@ def test_deposit_per_account_is_not_shared(
         _session(uow, now)
         first = uow.accounts.add("1" * 64, now).id
         second = uow.accounts.add("2" * 64, now).id
-        uow.ledger.append(
-            _entry(first, now, EntryType.CASH_IN_DEPOSIT, 500, 500, "op-a")
-        )
+        uow.ledger.append(_entry(first, now, EntryType.CASH_IN_DEPOSIT, 0, 500, "op-a"))
         uow.commit()
 
     with uow_factory.begin() as uow:

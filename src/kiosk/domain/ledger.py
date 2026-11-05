@@ -114,7 +114,9 @@ def _validate_rules(
     expected: dict[EntryType, tuple[int, int]] = {
         # (amount sign, deposit delta sign); 0 means "must be zero".
         EntryType.CASH_IN_TOPUP: (1, 0),
-        EntryType.CASH_IN_DEPOSIT: (1, 1),
+        # Fund (Pfand) is collected per new or additional card. It is held apart
+        # from the spendable balance, so it adds no amount to the balance.
+        EntryType.CASH_IN_DEPOSIT: (0, 1),
         EntryType.RECYCLE_REFUND: (1, -1),
         EntryType.PAYMENT: (-1, 0),
         EntryType.PAYOUT: (-1, 0),

@@ -16,12 +16,12 @@ Regel (MVP): Die 25 EUR sind **immer vorher** am Gatekeeper bar bezahlt worden. 
 1. Gatekeeper-Bestaetigung: 25 EUR bar sind gezahlt. Ohne Bestaetigung startet kein Ablauf, es erfolgt keine Hardwareaktion und keine Buchung. Cancel/Nein bricht ab.
 2. Auswahl -> Ausweis am Flipper Zero auflegen; Warteanzeige und Abbrechen.
 3. Kennung: Die UID des vorgezeigten Chips dient als Kennung (MVP). Keine Namenseingabe.
-4. Konto erkannt/neu angelegt; Cooldown-Restzeit zeigen. Bei Demo `cooldown_enforced=false` ausdruecklich als Information anzeigen, dass die Nutzung nicht blockiert wird.
+4. Konto erkannt/neu angelegt.
 5. Ausgabe-Fortschritt, dann bestaetigte Ausgabe und Aufschluesselung 20 EUR Guthaben + 5 EUR Pfand.
 6. Fehler: klare Wiederherstellungshinweise, bei unklarem physischen Ergebnis Admin-Hilfe.
 
 ### Weitere Karte
-Konto aus dem bestehenden Flow auswaehlen/identifizieren; kein Cooldown-Dialog und keine Sperre. Gleiche Regel wie Neue Karte: Die 25 EUR sind vorher am Gatekeeper bezahlt und bestaetigt. Gleiche Aufschluesselung, keine Preisabweichung.
+Konto aus dem bestehenden Flow auswaehlen/identifizieren; keine Sperre. Gleiche Regel wie Neue Karte: Die 25 EUR sind vorher am Gatekeeper bezahlt und bestaetigt. Gleiche Aufschluesselung, keine Preisabweichung.
 
 ### Konto aufladen
 Ausweis lesen, 20-EUR-Festbetrag anzeigen, Barzahlung durch Gatekeeper bestaetigen lassen, bei Erfolg aktualisierten Kontostand zeigen. Keine Betragseingabe.
@@ -51,7 +51,6 @@ Aktive Karte lesen, Demo/Dummy-Modus klar kennzeichnen. Betrag als ganze Cent bz
 | Karte kann nicht gelesen werden. Bitte erneut versuchen. | Card could not be read. Please try again. |
 | Hardware nicht erreichbar. Bitte Gatekeeper informieren. | Hardware unavailable. Please contact the Gatekeeper. |
 | Guthaben reicht nicht aus. | Insufficient balance. |
-| Demo: Cooldown noch {time}; Ausgabe wird nicht blockiert. | Demo: cooldown remaining {time}; issue is not blocked. |
 | Offene, nicht zurueckgegebene Karten: Das Pfand wurde bereits gezahlt und kann nachtraeglich nicht mehr ausgezahlt werden. | Open, unreturned cards: the deposit has already been paid and cannot be refunded later. |
 
 Dynamische Werte zentral und sicher einsetzen, niemals ungefilterte Kennungen in UI-Strings aufnehmen.

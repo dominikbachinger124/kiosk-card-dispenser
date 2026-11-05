@@ -1,7 +1,7 @@
 # Sicherheits- und Datenschutznotizen
 
 ## MVP-Grenzen
-Dies ist ein lokales MVP/Proof-of-Concept, kein zertifiziertes Zutritts- oder Zahlungssystem. Ein unsignierter Ausweisleser ist manipulierbar/kopierbar; spaeter ist fuer hoehere Schutzanforderungen ein kryptografischer High-Security-Reader mit Challenge-Response und sicherer Schluesselverwaltung erforderlich. Im MVP-Demo-Modus kann der 24-Stunden-Cooldown umgangen werden (`cooldown_enforced=false`); Restzeit wird angezeigt, Nutzung aber nicht blockiert. Bargeldannahme wird nicht technisch verifiziert, sondern vom Gatekeeper bestaetigt. DummyPayment ist keine echte Zahlungsabwicklung.
+Dies ist ein lokales MVP/Proof-of-Concept, kein zertifiziertes Zutritts- oder Zahlungssystem. Ein unsignierter Ausweisleser ist manipulierbar/kopierbar; spaeter ist fuer hoehere Schutzanforderungen ein kryptografischer High-Security-Reader mit Challenge-Response und sicherer Schluesselverwaltung erforderlich. Bargeldannahme wird nicht technisch verifiziert, sondern vom Gatekeeper bestaetigt. DummyPayment ist keine echte Zahlungsabwicklung.
 
 ## Datensparsamkeit und Hashing
 Nur Ausweiskennung (Kartennummer/UID) lesen. Vor Persistenz SHA-256 mit geheimem, zufaelligem Salt aus lokaler Config anwenden; niemals Rohkennung, sonstige Ausweisdaten oder Salt loggen. Salt darf nicht ins Repository. Hashes koennen bei bekanntem kleinem Kennungsraum angreifbar bleiben; Zugriff auf DB-Datei und Backup einschränken. Nur notwendige Zeit-/Vorgangsmetadaten speichern und Aufbewahrung organisatorisch festlegen.

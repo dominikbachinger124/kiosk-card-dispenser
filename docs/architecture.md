@@ -43,10 +43,10 @@ Ein dedizierter Worker-Thread pollt den K720, begrenzt IO-Timeouts und emittiert
 Alle Summen integerbasiert. Salden koennen aus Ledger summiert werden; sofern Cache-Spalten eingefuehrt werden, innerhalb derselben Transaktion fortschreiben und testbar gegen Ledger abgleichen. Guthabenuntergrenze 0 per Service-Validierung sowie geeigneter DB-Constraint/Transaktion absichern. Indizes auf `accounts.id_hash`, `cards.account_id/status` und `ledger.account_id`.
 
 ## Services
-Mindestens `IssueCardService` (gemeinsam fuer erste/weitere Ausgabe, Modus unterscheidet Ausweis+Cooldown von bestehendem Konto ohne Cooldown), `TopUpService`, `ReadBalanceService`, `ReadCardService`, `RecycleCardService`, `DummyPaymentService`, `AdminPayoutService`. Services nehmen Interfaces/Repositories per Konstruktor entgegen. Zahlung bestaetigt der Gatekeeper explizit; Buchung und Karten-/Kontenzuordnung transaktional/idempotent. Physischer Vorgang und DB-Commit sind keine gemeinsame ACID-Transaktion: Fehler-/Recovery-Zustand protokollieren, unklare Ausgabe nicht stillschweigend als erfolgreich buchen und Admin-Klaerung vorsehen.
+Mindestens `IssueCardService` (gemeinsam fuer erste/weitere Ausgabe; Modus unterscheidet Ausweis-Pflicht bei neuer Karte von bestehendem Konto), `TopUpService`, `ReadBalanceService`, `ReadCardService`, `RecycleCardService`, `DummyPaymentService`, `AdminPayoutService`. Services nehmen Interfaces/Repositories per Konstruktor entgegen. Zahlung bestaetigt der Gatekeeper explizit; Buchung und Karten-/Kontenzuordnung transaktional/idempotent. Physischer Vorgang und DB-Commit sind keine gemeinsame ACID-Transaktion: Fehler-/Recovery-Zustand protokollieren, unklare Ausgabe nicht stillschweigend als erfolgreich buchen und Admin-Klaerung vorsehen.
 
 ## Fehlerbehandlung
-Typed domain/application errors fuer unbekannte, gesperrte Karte, unzureichendes Guthaben, Cooldown, nicht bestaetigte Barzahlung, Hardware-Timeout/Portfehler, klemmt, DB-Fehler und ungueltigen Zustand. UI zeigt lokalisierte, verstaendliche Meldungen; Logs enthalten Fehlercode/Session-ID, niemals Ausweiskennung, PIN oder Geheimnisse. Hardwarefehler stoppen den betroffenen Flow sicher, verhindern Buchung bei unbestaetigtem/fehlgeschlagenem Vorgang und lassen Admin-Wiederherstellung zu.
+Typed domain/application errors fuer unbekannte, gesperrte Karte, unzureichendes Guthaben, nicht bestaetigte Barzahlung, Hardware-Timeout/Portfehler, klemmt, DB-Fehler und ungueltigen Zustand. UI zeigt lokalisierte, verstaendliche Meldungen; Logs enthalten Fehlercode/Session-ID, niemals Ausweiskennung, PIN oder Geheimnisse. Hardwarefehler stoppen den betroffenen Flow sicher, verhindern Buchung bei unbestaetigtem/fehlgeschlagenem Vorgang und lassen Admin-Wiederherstellung zu.
 
 ## Konfiguration (Beispiel, keine Geheimnisse)
 
@@ -54,8 +54,6 @@ Typed domain/application errors fuer unbekannte, gesperrte Karte, unzureichendes
 [app]
 language = "de"
 mode = "kiosk"
-cooldown_hours = 24
-cooldown_enforced = false
 
 [money]
 topup_cents = 2000

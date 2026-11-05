@@ -8,8 +8,8 @@ Tasks 00-04 abgeschlossen; Services und UI-Grundgeruest getestet. Lies `docs/dom
 
 ## Konkrete Schritte
 1. Flows: Neue Karte, Weitere Karte, Konto aufladen, Kontostand, Karte lesen, Karte recyceln, Bezahlen.
-2. Neue Karte: Ausweis als Pflicht, Cooldownrestzeit sichtbar; bei Demo klar sagen, dass Nutzung nicht blockiert wird. Gatekeeper bestaetigt 25 EUR; erst dann ausgeben/buchen.
-3. Weitere Karte: bestehendes Konto, kein Cooldown, aber identische 25-EUR-Bestaetigung und 2000+500-Cent-Zuordnung.
+2. Neue Karte: Ausweis als Pflicht. Gatekeeper bestaetigt 25 EUR; erst dann ausgeben/buchen.
+3. Weitere Karte: bestehendes Konto, aber identische 25-EUR-Bestaetigung und 2000+500-Cent-Zuordnung.
 4. Aufladung: immer 20 EUR und Gatekeeper-Bestaetigung. Kontostand fuer alle Kontokarten.
 5. Karte lesen: Hinweis exakt `Bitte Karte einfuehren`; automatische Erkennung, unbekannt/gesperrt sofort auswerfen und exakte deutsche Fehlermeldungen.
 6. Recycling: User entscheidet Recyceln oder Zurueckgeben; nur erfolgreicher Recyclingvorgang gibt 5 EUR als Guthaben frei.

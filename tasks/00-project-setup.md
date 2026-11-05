@@ -9,7 +9,7 @@ Lies `CLAUDE.md`, `docs/domain.md`, `docs/architecture.md` und `docs/security-no
 ## Konkrete Schritte
 1. Erstelle `pyproject.toml` fuer Python >=3.11, Paketquelle `src/`, Runtime-Abhaengigkeiten PySide6 und pyserial, Entwicklungsabhaengigkeit pytest; Ruff/mypy optional konfigurierbar. Kein CI erforderlich.
 2. Erstelle Paketstruktur `src/kiosk/{domain,storage,hardware,services,gui,i18n}/`, `tests/` und `migrations/` mit minimalen `__init__.py` wo passend.
-3. Lege nicht geheime `config.toml` mit Sprache Deutsch, realem Betriebsmodus, topup 2000, deposit 500, gatekeeper collection 2500 Cent, cooldown 24 Stunden und `cooldown_enforced=false` an. Geheimnisse bleiben ausserhalb versionierter Config; `.gitignore` ignoriert `config.local.toml`, `.env`, DB und venv.
+3. Lege nicht geheime `config.toml` mit Sprache Deutsch, realem Betriebsmodus, topup 2000, deposit 500, gatekeeper collection 2500 Cent, an. Geheimnisse bleiben ausserhalb versionierter Config; `.gitignore` ignoriert `config.local.toml`, `.env`, DB und venv.
 4. Richte pytest und minimale Smoke-Tests fuer Import, Config-Parsing/Validierung und Cent-Integerwerte ein. Erzeuge eine klare Start-/Entwicklungsnotiz ohne unzutreffende Hardwarebehauptungen.
 5. Keine CI-Pipeline hinzufuegen. Keine Fake-Komponenten fuer den Betrieb konfigurieren.
 

@@ -26,8 +26,6 @@ VALID_CONFIG_TOML = """
 [app]
 language = "de"
 mode = "real"
-cooldown_hours = 24
-cooldown_enforced = false
 
 [money]
 topup_cents = 2000

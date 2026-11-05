@@ -16,8 +16,6 @@ def _raw(**overrides: object) -> dict[str, dict[str, object]]:
         "app": {
             "language": "de",
             "mode": "real",
-            "cooldown_hours": 24,
-            "cooldown_enforced": False,
         },
         "money": {
             "topup_cents": 2000,
@@ -42,8 +40,6 @@ def test_valid_file_loads(valid_config_path: Path) -> None:
     config = load_config(valid_config_path)
 
     assert config.app.language == "de"
-    assert config.app.cooldown_hours == 24
-    assert config.app.cooldown_enforced is False
     assert config.privacy.id_hash_salt_env == "KIOSK_ID_HASH_SALT"
 
 
@@ -131,8 +127,6 @@ def test_repository_config_is_valid() -> None:
     assert config.money.topup_cents == 2000
     assert config.money.deposit_cents == 500
     assert config.money.gatekeeper_collection_cents == 2500
-    assert config.app.cooldown_hours == 24
-    assert config.app.cooldown_enforced is False
 
 
 def _admin(**overrides: object) -> dict[str, dict[str, object]]:

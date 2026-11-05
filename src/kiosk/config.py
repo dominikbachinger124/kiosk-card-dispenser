@@ -24,14 +24,10 @@ class AppConfig:
     Attributes:
         language: UI language code, ``"de"`` or ``"en"``.
         mode: Operating mode; only ``"real"`` is allowed in production.
-        cooldown_hours: Hours between two card issues for the same ID.
-        cooldown_enforced: Whether the cooldown blocks issuing (demo: False).
     """
 
     language: str
     mode: str
-    cooldown_hours: int
-    cooldown_enforced: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,8 +143,6 @@ def parse_config(raw: dict[str, Any]) -> KioskConfig:
         app=AppConfig(
             language=_choice(app, "app", "language", ("de", "en")),
             mode=_choice(app, "app", "mode", (_OPERATING_MODE,)),
-            cooldown_hours=_positive_int(app, "app", "cooldown_hours"),
-            cooldown_enforced=_bool(app, "app", "cooldown_enforced"),
         ),
         money=MoneyConfig(
             topup_cents=_cents(money, "money", "topup_cents"),

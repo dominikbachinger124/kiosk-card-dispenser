@@ -11,7 +11,7 @@ Die Konten sind getrennte Kontensalden aus getrennten Ledgerbuchungen. Geld wird
 
 ## Konten und Ausweiskennung
 - Pro Nutzer genau ein Konto; Wiedererkennung erfolgt ueber den Hash der Ausweiskennung (Kartennummer/UID). Keine sonstigen Ausweisdaten erfassen.
-- Ausweis-Einlesen ist Pflicht fuer **Neue Karte**, **Konto aufladen**, **Kontostand** und Admin-Kontosuche. **Weitere Karte** verwendet das bereits gewaehlte/bekannte Konto und verlangt keinen erneuten Cooldown-Check; vor Durchfuehrung muss das Konto im Flow eindeutig ausgewaehlt bzw. durch den erforderlichen Gatekeeper-Schritt bestaetigt sein.
+- Ausweis-Einlesen ist Pflicht fuer **Neue Karte**, **Konto aufladen**, **Kontostand** und Admin-Kontosuche. **Weitere Karte** verwendet das bereits gewaehlte/bekannte Konto und verlangt keinen erneuten Check; vor Durchfuehrung muss das Konto im Flow eindeutig ausgewaehlt bzw. durch den erforderlichen Gatekeeper-Schritt bestaetigt sein.
 - Guthaben kann sinken, jedoch nie negativ werden. Pro Konto gibt es ein Guthabenkonto und ein Fundkonto, nicht einen globalen Fundtopf. Das Fundkonto wird pro Nutzer gefuehrt, um Missbrauch durch konto-/kartenuebergreifende Verrechnung zu verhindern.
 - Fund +500 je ausgegebener Karte (neue oder weitere Karte). Guthaben +2000 je ausgegebener Karte.
 - Bei jedem Recycling einer dem Nutzer gehoerenden, registrierten Karte wandern 500 Cent vom Fundkonto auf das Guthabenkonto (`recycle_refund`). Die Karte wird auf `recycled` gesetzt.
@@ -29,14 +29,12 @@ Das Hauptmenue bietet genau diese sieben Funktionen: **Neue Karte**, **Weitere K
 
 ### Neue Karte
 1. Ausweis am Flipper Zero einlesen (Pflicht), UID hashen und Konto finden oder anlegen. Die UID des vorgezeigten Chips ist die Kennung (MVP). Keine Namenseingabe, keine weiteren Ausweisdaten.
-2. Cooldown seit letzter Ausgabe derselben Ausweiskennung berechnen (24 Stunden).
-3. `cooldown_enforced=false` im MVP-Demo-Modus: verbleibende Zeit wird sichtbar angezeigt, die Nutzung wird jedoch nicht blockiert. Bei aktivierter Erzwingung wird waehrend der 24 Stunden nicht ausgegeben.
 4. Gatekeeper bestaetigt am Terminal, dass 25 EUR bar kassiert wurden. Die Zahlung erfolgt immer **vorher** (MVP). Ohne Bestaetigung kein Ausgabe-/Buchungsvorgang.
 5. Karte ausgeben, UID dem Konto zuordnen und 2000 Cent Guthaben plus 500 Cent Pfand buchen.
 6. Pro Session ist genau eine Karte erlaubt. Bei Fehlern Buchungen und Zuordnung transaktional konsistent halten; physische Teilerfolge protokollieren und Admin-Klaerung ermoeglichen.
 
 ### Weitere Karte
-Eigener Orbit-Eintrag. Aus bestehendem Konto heraus kann der Nutzer ohne Cooldown-Pruefung eine weitere Karte beziehen. Es gilt **derselbe Preis** wie bei der ersten: Gatekeeper bestaetigt 25 EUR bar, wovon 2000 Cent Guthaben und 500 Cent Pfand gebucht werden. Karte dem selben Konto zuordnen. Keine Preisermässigung und kein Cooldown. Pro Session weiterhin nur eine Karte.
+Eigener Orbit-Eintrag. Aus bestehendem Konto heraus kann der Nutzer eine weitere Karte beziehen. Es gilt **derselbe Preis** wie bei der ersten: Gatekeeper bestaetigt 25 EUR bar, wovon 2000 Cent Guthaben und 500 Cent Pfand gebucht werden. Karte dem selben Konto zuordnen. Keine Preisermaessigung. Pro Session weiterhin nur eine Karte.
 
 ### Konto aufladen
 Eigener Orbit-Eintrag. Ausweis lesen und Konto bestimmen. Aufladung ist immer genau **20 EUR = 2000 Cent**. Der Gatekeeper bestaetigt die Barzahlung; erst danach wird `cash_in_topup` gebucht. Kein frei waehlbarer Betrag.
@@ -65,7 +63,7 @@ Auszahlung erfolgt bar durch Gatekeeper. Vor Auszahlung die Auszahlung am Termin
 Ledger-Eintragstypen mindestens: `cash_in_topup`, `cash_in_deposit`, `recycle_refund`, `payment`, `payout`, `card_cancel`. Buchungen sind append-only, jede Korrektur ist eine Gegenbuchung mit Bezug auf Ursprung und Grund. Keine Buchung aendern/loeschen. Salden muessen konsistent und transaktional aus Buchungen abgeleitet oder gegen diese verifizierbar sein. SQLite-Transaktionen schuetzen zusammmengehoerige Operationen; Guthaben darf nie unter null gehen. Wiederholte UI-/Hardware-Ereignisse duerfen keine Doppelbuchungen verursachen.
 
 ## Konfigurationsstandardwerte
-`topup_cents=2000`, `deposit_cents=500`, `gatekeeper_collection_cents=2500`, `cooldown_hours=24`, `cooldown_enforced=false`. Werte in Cent, keine Float-Konvertierung. Produktionsaenderungen muessen mit Domänenregeln konsistent bleiben.
+`topup_cents=2000`, `deposit_cents=500`, `gatekeeper_collection_cents=2500`. Werte in Cent, keine Float-Konvertierung. Produktionsaenderungen muessen mit Domänenregeln konsistent bleiben.
 
 ## Offene Punkte
 Keine.

@@ -18,6 +18,7 @@ from kiosk.hardware.k720_frame import (
     BIT_CARD_OVERLAP,
     BIT_CARD_STUCK,
     BIT_SENSOR_READ,
+    BIT_SENSOR_STACK,
     BIT_SENSOR_USER,
     BIT_STOCK_EMPTY,
     ENQ,
@@ -116,7 +117,7 @@ def test_status_polls_are_spaced_by_at_least_200_ms() -> None:
     driver.poll_state()
     driver.poll_state()
 
-    assert clock.sleeps and clock.sleeps[0] >= 0.2 - 1e-9
+    assert max(clock.sleeps) >= 0.2 - 1e-9
 
 
 # --- issuing ---------------------------------------------------------------
@@ -339,3 +340,119 @@ def test_enq_follows_every_command_frame() -> None:
     for index in frame_indexes:
         assert index + 1 < len(link.writes), "frame was not followed by ENQ"
         assert link.writes[index + 1] == expected_enq
+
+
+# --- FC4: read position / stack -> user exit (standard read flow) ----------
+
+
+def test_move_to_user_exit_sends_fc4_and_waits_for_user_exit() -> None:
+    link = ScriptedLink()
+    clock = FakeClock()
+    link.queue(
+        *handshake(status_frame(BIT_SENSOR_READ)),  # pre-check: card at read position
+        *handshake(),  # FC4 handshake, no answer frame
+        *handshake(status_frame(BIT_SENSOR_USER)),
+    )
+
+    _driver(link, clock).move_card_to_user_exit()
+
+    assert _sent_commands(link) == [b"AP", b"FC4", b"AP"]
+
+
+def test_move_to_user_exit_accepted_from_stack() -> None:
+    link = ScriptedLink()
+    clock = FakeClock()
+    link.queue(
+        *handshake(status_frame(BIT_SENSOR_STACK)),
+        *handshake(),
+        *handshake(status_frame(BIT_SENSOR_USER)),
+        *handshake(status_frame(BIT_SENSOR_USER)),
+    )
+
+    _driver(link, clock).move_card_to_user_exit()
+
+    assert b"FC4" in _sent_commands(link)
+
+
+def test_fc4_completes_on_first_user_exit_read_even_if_user_removes_card() -> None:
+    """Section 10.1: U goes high instantly. The user may take the card at once.
+
+    The first read with U set completes FC4. A later removal (S only) must not
+    be treated as a failure, so only a single U read is needed.
+    """
+    link = ScriptedLink()
+    clock = FakeClock()
+    link.queue(
+        *handshake(status_frame(BIT_SENSOR_READ | BIT_SENSOR_USER)),  # pre-check
+        *handshake(),  # FC4 handshake
+        *handshake(status_frame(BIT_SENSOR_USER)),  # seen once, then removed
+    )
+
+    _driver(link, clock).move_card_to_user_exit()
+
+    assert _sent_commands(link) == [b"AP", b"FC4", b"AP"]
+
+
+def test_move_to_user_exit_without_card_raises_before_sending() -> None:
+    link = ScriptedLink()
+    link.queue(*handshake(status_frame(0)))
+
+    with pytest.raises(DispenserStateError):
+        _driver(link, FakeClock()).move_card_to_user_exit()
+
+    assert b"FC4" not in _sent_commands(link)
+
+
+# --- settle time after movement commands ------------------------------------
+
+
+def test_movement_waits_one_second_before_first_status_poll() -> None:
+    link = ScriptedLink()
+    clock = FakeClock()
+    link.queue(
+        *handshake(status_frame(BIT_SENSOR_STACK)),
+        *handshake(),
+        *handshake(status_frame(BIT_SENSOR_USER)),
+        *handshake(status_frame(BIT_SENSOR_USER)),
+    )
+
+    _driver(link, clock).issue_card()
+
+    assert 1.0 in clock.sleeps
+
+
+def test_handshake_gap_is_50_ms_between_ack_and_enq() -> None:
+    link = ScriptedLink()
+    clock = FakeClock()
+    link.queue(*handshake(status_frame(0)))
+
+    _driver(link, clock).poll_state()
+
+    assert 0.05 in clock.sleeps
+
+
+# --- FC7 from stack (matrix: S -> L+U) ----------------------------------------
+
+
+def test_move_to_read_position_accepted_from_stack() -> None:
+    link = ScriptedLink()
+    link.queue(
+        *handshake(status_frame(BIT_SENSOR_STACK)),
+        *handshake(),
+        *handshake(status_frame(BIT_SENSOR_READ | BIT_SENSOR_USER)),
+        *handshake(status_frame(BIT_SENSOR_READ | BIT_SENSOR_USER)),
+    )
+
+    _driver(link, FakeClock()).move_card_to_read_position()
+
+    assert b"FC7" in _sent_commands(link)
+
+
+def test_move_to_read_position_refused_from_user_and_read() -> None:
+    link = ScriptedLink()
+    link.queue(*handshake(status_frame(BIT_SENSOR_READ | BIT_SENSOR_USER)))
+
+    with pytest.raises(DispenserStateError):
+        _driver(link, FakeClock()).move_card_to_read_position()
+
+    assert b"FC7" not in _sent_commands(link)

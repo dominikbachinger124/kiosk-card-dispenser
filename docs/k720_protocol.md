@@ -152,3 +152,67 @@ Dieser Ablauf ist die Empfehlung. Schritt 5 (`FC7` aus Ausgang) ist gemessen (Zu
 - Die Ablagebox-Füllung wird nicht gezählt. Der K720 zählt keine Karten; das Bit `0x0080` ist für den K720 nicht relevant (der Zählsensor gehört zum K750).
 - `0x1000` (Vorbereitung) tritt nach Auswurf und während des Nachladens des Stapels auf. Ob es auch bei normaler Vorbereitung erscheint, ist nicht geprüft.
 - Die Sensornamen sind Projektnamen. Im Handbuch heißen die Sensoren anders (Sensor 1 Vorab-Einzug, Sensor 2 Leseposition, Sensor 3 Kartenmund). Für die Implementierung gelten die Projektnamen.
+
+### 10.1 Beobachteter Stau U+S mit Ueberlappung (Sitzung, Messung am Geraet)
+
+Befund (gemessen, nicht reproduzierbar auf Befehl):
+
+- `FC4` aus L+U (`0x0003`) ergab stabil `0x0015` (U+S, Vorrat-Warnung aktiv). Das ist der bisher unbeobachtete Zustand U+S, jetzt gemessen.
+- Nachfolgend `FC7` aus U+S: `CardOverlapError`, Status `0x0256` (Ausgabefehler `0x0200`, Ueberlappung `0x0040`, L+S). Der Befehl wurde vom Geraet nicht ausgefuehrt, die Bits blockieren.
+- `CP` aus diesem Zustand: ACK, danach `0x4256` (Befehl abgelehnt), dann wieder `0x0256`. Keine Bewegung.
+- `FC0` aus diesem Zustand: ACK, danach `0x1056` (Vorbereitung, Ueberlappung bleibt). Ausgabefehler-Bit weg. Ob dabei eine Karte ausgeworfen wurde, ist nicht gemessen.
+- Danach stabil `0x0054` (Ueberlappung, Vorrat-Warnung, Stapel belegt). Keine Leseposition, kein Ausgang.
+- `RS` aus `0x0054`: ACK, danach stabil `0x0014`. Die Ueberlappung ist geloest. Damit weicht die Beobachtung von der Tabelle in Abschnitt 5 ab, die fuer `RS` keine Wirkung auf die Sensorbits angibt. Einmal beobachtet, nicht wiederholt.
+
+Einschraenkung (Nutzerbefund, Sichtpruefung am Geraet):
+
+- Die klemmende Karte steckt am Ausgang Sensor User und blockiert die Ausgabe neuer Karten. Der Status zeigt das nicht: Nach `RS` ist der Ausgang frei, obwohl die Karte dort steckt.
+- Die Karte ist ausserhalb des Sensorbereichs fuer den K720 nicht erkennbar. Der Treiber kann den Stau nicht selbst beheben.
+- Konsequenz: `RS` ist kein Ersatz fuer die Entnahme. Die Ausgabe bleibt blockiert, bis die Karte entfernt wurde.
+
+Zulaessige Behandlung (Freigabe durch Admin erforderlich, nicht durch den Treiber entscheidbar):
+
+1. Stau erkannt (U+S oder Ueberlappung): Geraet sperren, keine weitere Ausgabe, Stoerung anzeigen.
+2. Admin entfernt die Karte aus dem Ausgang, oder bei klemmender Karte drueckt er die rote Taste am Geraet.
+3. Admin bestaetigt die Entnahme in der Software. Erst danach darf `AP` wieder als regulaer gelten und die Ausgabe starten.
+
+`FC0` wird dafuer nicht verwendet (Abschnitt 8).
+
+Weitere Messungen in derselben Sitzung:
+
+- `FC4` aus L+U (`0x0013`) ergab zum zweiten Mal U+S (`0x0015`), stabil. U+S ist damit reproduzierbar.
+- `FC8` aus U+S (`0x0015`): ACK, keine Aenderung des Status. Die Sichtpruefung der vorderen Karte stand aus.
+- `FC4` aus `0x0017` (U+L+S, mit Ueberlappung): erzeugte `0x0257` (Ausgabefehler, Ueberlappung), stabil.
+- `FC0` aus `0x0257`: ACK, Status unveraendert `0x0257`.
+- `RS` aus `0x0257`: ACK, danach `0x0017`, ohne blockierende Bits. Die Ueberlappung und der Ausgabefehler wurden durch `RS` zurueckgesetzt.
+- `FC0` aus `0x0017`: ACK, danach wieder `0x0257`. `FC0` loest den Fehler nicht.
+- Nach dem Nutzer-Eingriff (roter Knopf, Entnahme durch Person am Geraet) stabil `0x0016`, danach `0x0014`. Der Stau war damit behoben.
+- `RS` aus `0x0014` (nach Entnahme, Stapel belegt): ACK, danach nach ca. 3 s `0x0017` (Ausgang, Leseposition, Stapel belegt). `RS` veraendert die Sensorbelegung also auch ohne Ueberlappung. Das widerspricht der Tabelle in Abschnitt 5 (keine Bewegung) und ist in der Sitzung zweimal beobachtet.
+
+Zusammenfassung fuer die Behandlung: `RS` ist kein sicheres Mittel gegen Staus, es kann Sensorzustaende verschieben. `FC0` ist ausgeschlossen. Ein Stau mit Ueberlappung braucht eine Person am Geraet und eine Bestaetigung, dass der Schacht frei ist.
+
+Ablauf FC7 aus S -> Lesen -> FC4 aus L+U (gemessen):
+
+- `FC7` aus S (`0x0014`): ergab L+U (`0x0013`).
+- UID-Lesen aus L+U: erfolgreich (8 Hex-Zeichen, Wert nicht protokolliert).
+- `FC4` aus L+U: ergab U (`0x0011`), stabil. Diesmal kein U+S.
+- Danach nach ca. 1,2 s `0x1010` (Vorbereitung, Vorrat-Warnung), dann stabil `0x0014` (nur Stapel).
+- Nutzer-Befund: Die Karte am Ausgang wurde entnommen. Mechanisch kam danach automatisch eine Karte aus dem Vorrat in den Stapel (Sensor Stapel). Das erklaert `0x1010` und `0x0014` ohne weiteren Befehl.
+
+Damit ist der Ablauf Entnahme -> automatische Nachladung des Stapels in der Messung belegt.
+
+Annahme-Ablauf (Nutzer schiebt Karte von vorne ein, ohne Befehl):
+
+- Start `0x0014` (S), stabil.
+- Einzug durch Nutzer: nach ca. 4,7 s `0x0013` (L+U), kein Befehl gesendet.
+- UID aus L+U gelesen (8 Hex-Zeichen, Wert nicht protokolliert).
+
+Ausgabe und Recycling derselben Sitzung:
+
+- `FC4` aus L+U: Karte nach vorne gebracht, vom Nutzer entnommen. Der Treiber meldete `HardwareTimeoutError` ("card did not reach user exit"), weil der Nutzer die Karte entnahm, bevor der Status als stabiles U gelesen wurde. Der Geraetezustand war erwartungsgemaess, das Problem liegt in der Wartebedingung des Treibers (siehe Folgerung unten).
+- Neue Karte eingeschoben, Status stabil `0x0013` (L+U), UID aus L+U gelesen (8 Hex-Zeichen).
+- `CP` aus L+U: ACK, danach stabil `0x0014` (nur S), keine blockierenden Bits. Karte aus Leseposition und Ausgang verschwunden. Ablage in die Recyclingbox: Nutzer-Bestaetigung ausstehend.
+
+Folgerung fuer den Treiber:
+
+- `_wait_for_status` akzeptiert eine Bewegung erst, wenn der Zielzustand zweimal hintereinander gelesen wurde. Entnimmt der Nutzer die Karte schneller, laeuft das in einen Timeout, obwohl das Geraet korrekt gearbeitet hat. Der Service muss diesen Fall als "Karte entnommen, Zielzustand nicht bestaetigt" behandeln, nicht als Geraetefehler. Offen, nicht geaendert.

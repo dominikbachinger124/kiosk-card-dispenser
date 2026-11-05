@@ -1,11 +1,12 @@
 """K720 card dispenser driver over pyserial.
 
 Implements only the commands listed in ``docs/k720_protocol.md``:
-``AP``, ``DC``, ``FC7``, ``FC6``, ``FC4``, ``CP``, ``RS`` and the card search
+``AP``, ``DC``, ``FC7``, ``FC4``, ``CP``, ``RS`` and the card search
 and UID commands ``0x3B 0x30`` / ``0x3B 0x31``.
 
 Deliberately NOT implemented: ``FC0`` (ejects a card that then jams the
-chute) and ``CS0``..``CS5`` (changes the baud rate and drops the link).
+chute), ``FC6`` (only valid from stack alone, not part of the flow) and
+``CS0``..``CS5`` (changes the baud rate and drops the link).
 
 Every command follows the handshake from section 3: frame, wait for ACK,
 send ENQ. Movement commands return no payload, so their result is read with
@@ -48,6 +49,8 @@ logger = logging.getLogger("kiosk.hardware.k720")
 
 K720_BAUDRATE = 9600
 STATUS_POLL_INTERVAL_S = 0.2
+MOVEMENT_SETTLE_S = 1.0
+HANDSHAKE_GAP_S = 0.05
 RESPONSE_TIMEOUT_S = 2.0
 READ_RETRY_INTERVAL_S = 0.01
 COMMAND_SETTLE_TIMEOUT_S = 15.0
@@ -57,6 +60,7 @@ MAX_UID_BYTES = 4
 CMD_STATUS_LONG = b"AP"
 CMD_MOVE_STACK_TO_USER = b"DC"
 CMD_MOVE_USER_TO_READ = b"FC7"
+CMD_MOVE_READ_TO_USER = b"FC4"
 CMD_DISPOSE = b"CP"
 CMD_SEARCH_CARD = b"\x3b\x30"
 CMD_READ_UID = b"\x3b\x31"
@@ -124,18 +128,56 @@ class K720Dispenser:
         )
 
     def move_card_to_read_position(self) -> None:
-        """Move a card from the user exit to the read position (``FC7``).
+        """Move a card to the read position (``FC7``).
+
+        Accepted from S, U, L and L+S (protocol matrix). Refused from L+U.
 
         Raises:
-            DispenserStateError: If no card is at the user exit.
+            DispenserStateError: If no card is present, or the card is already
+                at the read position together with the user exit.
         """
         status = self._check_before_command()
-        if not status.user_exit_occupied:
-            raise DispenserStateError("no card at user exit")
+        if not (
+            status.stack_occupied
+            or status.user_exit_occupied
+            or status.read_position_occupied
+        ):
+            raise DispenserStateError("no card to move to read position")
+        if status.user_exit_occupied and status.read_position_occupied:
+            # Matrix: FC7 is refused from L+U (0x4013). Nothing to do.
+            raise DispenserStateError("card already at read position")
         self._send_movement(CMD_MOVE_USER_TO_READ)
         self._wait_for_status(
             lambda s: s.read_position_occupied and s.user_exit_occupied,
             failure_message="card did not reach read position",
+        )
+
+    def move_card_to_user_exit(self) -> None:
+        """Bring a card from any position to the user exit (``FC4``).
+
+        This is the standard step before reading: the card is taken from the
+        stack or read position and presented at the user exit. Per the
+        protocol matrix, ``FC4`` is accepted from S, L, U, L+U and L+S.
+
+        Raises:
+            DispenserStateError: If no card is present at any position.
+            HardwareTimeoutError: If the device does not settle in time.
+        """
+        status = self._check_before_command()
+        if not (
+            status.stack_occupied
+            or status.read_position_occupied
+            or status.user_exit_occupied
+        ):
+            raise DispenserStateError("no card to move to user exit")
+        self._send_movement(CMD_MOVE_READ_TO_USER)
+        # Sensor User goes high at once when the card arrives. Once it has been
+        # seen, the card is at the exit; the user removing it afterwards is the
+        # normal flow, so no second stable read is required here.
+        self._wait_for_status(
+            lambda s: s.user_exit_occupied and not s.read_position_occupied,
+            failure_message="card did not reach user exit",
+            require_stable=False,
         )
 
     def read_uid(self) -> str:
@@ -191,8 +233,15 @@ class K720Dispenser:
         return decode_frame(response)
 
     def _send_movement(self, payload: bytes) -> None:
-        """Send a movement command. Movement answers have no payload."""
+        """Send a movement command, then wait before the first status poll.
+
+        The motor runs for a device-determined time. Polling directly after the
+        command was observed to change the card position, so the driver waits
+        ``MOVEMENT_SETTLE_S`` before it reads the status again.
+        """
         self._send_with_handshake(payload)
+        self._sleep(MOVEMENT_SETTLE_S)
+        self._last_status_at = self._clock()
 
     def _send_with_handshake(self, payload: bytes) -> None:
         frame = encode_frame(self._address, payload)
@@ -203,6 +252,7 @@ class K720Dispenser:
             raise ProtocolError("device rejected the frame (NAK)")
         if answer[0] != ACK:
             raise ProtocolError("device did not acknowledge the frame")
+        self._sleep(HANDSHAKE_GAP_S)
         self._write(
             bytes(
                 [ENQ, _address_byte(self._address, 0), _address_byte(self._address, 1)]
@@ -220,8 +270,15 @@ class K720Dispenser:
         done: Callable[[DeviceStatus], bool],
         *,
         failure_message: str,
+        require_stable: bool = True,
     ) -> DeviceStatus:
-        """Poll ``AP`` every 200 ms until ``done`` holds and the status is stable."""
+        """Poll ``AP`` every 200 ms until ``done`` holds.
+
+        With ``require_stable`` (default, section 4) the target must be read in
+        two consecutive polls with the same status word. Without it, the first
+        read that satisfies ``done`` completes the command. Use that only for
+        targets that are reached instantly and may be left by a user afterwards.
+        """
         deadline = self._clock() + COMMAND_SETTLE_TIMEOUT_S
         previous: DeviceStatus | None = None
         while self._clock() < deadline:
@@ -235,6 +292,8 @@ class K720Dispenser:
             if not done(status):
                 previous = None
                 continue
+            if not require_stable:
+                return status
             # Section 4: the command is complete only when the status is stable,
             # i.e. two consecutive reads show the same word.
             if previous is not None and status.raw == previous.raw:
@@ -317,6 +376,7 @@ def _blocking_error(status: DeviceStatus) -> HardwareError:
 __all__ = [
     "ACK",
     "CMD_DISPOSE",
+    "CMD_MOVE_READ_TO_USER",
     "CMD_MOVE_STACK_TO_USER",
     "CMD_MOVE_USER_TO_READ",
     "CMD_READ_UID",

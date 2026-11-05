@@ -18,6 +18,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 from kiosk.domain.errors import HardwareError
 from kiosk.hardware.coordinator import HardwareCoordinator
 from kiosk.hardware.interfaces import CardDispenser, DispenserState
+from kiosk.hardware.sensor_events import SensorEdgeDetector, SensorReading
 
 logger = logging.getLogger("kiosk.hardware.polling")
 
@@ -47,11 +48,14 @@ class PollingWorker(QObject):
 
     Signals:
         card_inserted: Emitted once per new card at the user exit.
+        sensor_event: Emitted with the event name for every sensor transition
+            (see ``SensorEvent``), so the GUI can wake the screensaver.
         poll_failed: Emitted with an error code when a poll fails. The worker
             keeps running and retries, so a short fault does not end polling.
     """
 
     card_inserted = Signal()
+    sensor_event = Signal(str)
     poll_failed = Signal(str)
 
     def __init__(
@@ -67,6 +71,7 @@ class PollingWorker(QObject):
         self._sleep = sleep
         self._stop = threading.Event()
         self._detector = CardInsertionDetector()
+        self._edges = SensorEdgeDetector()
 
     @Slot()
     def run(self) -> None:
@@ -90,11 +95,19 @@ class PollingWorker(QObject):
             logger.warning("poll_failed", extra={"error_code": exc.code})
             self.poll_failed.emit(exc.code)
             return False
-        if self._detector.update(state.user_exit_occupied):
+        reading = SensorReading(
+            user_exit=state.user_exit_occupied,
+            read_position=state.read_position_occupied,
+            stack=state.stack_occupied,
+        )
+        for event in self._edges.update(reading):
+            # Only the event name leaves the worker. No device bytes, no card data.
+            self.sensor_event.emit(event.value)
+        inserted = self._detector.update(state.user_exit_occupied)
+        if inserted:
             logger.info("card_inserted", extra={"flow": "read"})
             self.card_inserted.emit()
-            return True
-        return False
+        return inserted
 
 
 def _read_state(dispenser: CardDispenser) -> DispenserState:

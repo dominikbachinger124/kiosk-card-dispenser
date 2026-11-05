@@ -13,7 +13,7 @@ from kiosk.hardware.coordinator import HardwareCoordinator
 from kiosk.hardware.interfaces import DispenserState
 from kiosk.hardware.k720_frame import BIT_SENSOR_USER
 from kiosk.hardware.polling import CardInsertionDetector, PollingWorker
-from tests.hardware.fakes import FakeDispenser
+from tests.hardware.fakes import FakeDispenser, FakeState
 
 
 @pytest.fixture(scope="module")
@@ -180,3 +180,61 @@ def test_polling_loop_stops_cleanly(qapp: QCoreApplication) -> None:
 
 def test_status_bit_constant_is_user_exit() -> None:
     assert BIT_SENSOR_USER == 0x0001
+
+
+class _ScriptedSensors:
+    """Dispenser whose sensor bits follow a fixed script, one entry per poll."""
+
+    def __init__(self, script: list[tuple[bool, bool, bool]]) -> None:
+        self._script = list(script)
+        self._state = FakeState()
+
+    def poll_state(self) -> DispenserState:
+        user, read, stack = (
+            self._script.pop(0) if self._script else (False, False, False)
+        )
+        self._state.user_exit_occupied = user
+        self._state.read_position_occupied = read
+        self._state.stack_occupied = stack
+        return self._state
+
+    def issue_card(self) -> None: ...
+    def move_card_to_read_position(self) -> None: ...
+    def move_card_to_user_exit(self) -> None: ...
+    def read_uid(self) -> str:
+        return ""
+
+    def dispose_card(self) -> None: ...
+
+
+def test_sensor_events_fire_on_transitions_only(qapp: QCoreApplication) -> None:
+    sensors = _ScriptedSensors(
+        [
+            (False, False, True),  # baseline: stack already occupied
+            (True, False, True),  # card reaches user exit
+            (True, False, True),  # steady: no event
+            (False, False, True),  # card taken
+        ]
+    )
+    worker = PollingWorker(HardwareCoordinator(sensors), sleep=lambda _: None)
+    events: list[str] = []
+    worker.sensor_event.connect(events.append)
+
+    for _ in range(4):
+        worker.poll_once()
+
+    assert events == ["user_exit_occupied", "user_exit_freed"]
+
+
+def test_card_at_user_exit_emits_sensor_event_for_screensaver(
+    qapp: QCoreApplication,
+) -> None:
+    sensors = _ScriptedSensors([(False, False, False), (True, False, False)])
+    worker = PollingWorker(HardwareCoordinator(sensors), sleep=lambda _: None)
+    events: list[str] = []
+    worker.sensor_event.connect(events.append)
+
+    worker.poll_once()
+    worker.poll_once()
+
+    assert "user_exit_occupied" in events

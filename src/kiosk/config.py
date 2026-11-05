@@ -11,7 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from kiosk.domain.errors import ConfigError
+from kiosk.domain.errors import ConfigError, InvalidCardIdError
+from kiosk.domain.identity import normalize_card_uid
 
 _OPERATING_MODE = "real"
 
@@ -79,6 +80,19 @@ class PrivacyConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class AdminConfig:
+    """Admin access settings. Values are local and never committed.
+
+    Attributes:
+        admin_uids: One or two admin card UIDs, normalized hex.
+        pin_hash: Encoded scrypt hash of the admin PIN. Never the PIN itself.
+    """
+
+    admin_uids: tuple[str, ...]
+    pin_hash: str
+
+
+@dataclass(frozen=True, slots=True)
 class KioskConfig:
     """Complete validated configuration."""
 
@@ -86,6 +100,7 @@ class KioskConfig:
     money: MoneyConfig
     hardware: HardwareConfig
     privacy: PrivacyConfig
+    admin: AdminConfig
 
 
 def load_config(path: Path) -> KioskConfig:
@@ -126,6 +141,7 @@ def parse_config(raw: dict[str, Any]) -> KioskConfig:
     money = _section(raw, "money")
     hardware = _section(raw, "hardware")
     privacy = _section(raw, "privacy")
+    admin = _section(raw, "admin")
 
     config = KioskConfig(
         app=AppConfig(
@@ -151,12 +167,39 @@ def parse_config(raw: dict[str, Any]) -> KioskConfig:
         privacy=PrivacyConfig(
             id_hash_salt_env=_non_empty_str(privacy, "privacy", "id_hash_salt_env"),
         ),
+        admin=_admin(admin),
     )
     if config.money.gatekeeper_collection_cents < config.money.topup_cents:
         raise ConfigError(
             "money.gatekeeper_collection_cents must not be below money.topup_cents"
         )
     return config
+
+
+def _admin(section: dict[str, Any]) -> AdminConfig:
+    """Validate admin settings. Empty values are allowed only for a fresh setup.
+
+    Admin login stays impossible while ``admin_uids`` or ``pin_hash`` is empty,
+    because the admin service refuses to start without them.
+    """
+    uids_raw = _require(section, "admin", "admin_uids")
+    if not isinstance(uids_raw, list) or not all(isinstance(u, str) for u in uids_raw):
+        raise ConfigError("admin.admin_uids must be a list of strings")
+    if len(uids_raw) > 2:
+        raise ConfigError("admin.admin_uids must contain at most two entries")
+    try:
+        uids = tuple(normalize_card_uid(u) for u in uids_raw)
+    except InvalidCardIdError as exc:
+        raise ConfigError("admin.admin_uids must be hexadecimal card UIDs") from exc
+    if len(set(uids)) != len(uids):
+        raise ConfigError("admin.admin_uids must not contain duplicates")
+
+    pin_hash = _require(section, "admin", "pin_hash")
+    if not isinstance(pin_hash, str):
+        raise ConfigError("admin.pin_hash must be a string")
+    if pin_hash and not pin_hash.startswith("scrypt$"):
+        raise ConfigError("admin.pin_hash must be an scrypt hash, never a clear PIN")
+    return AdminConfig(admin_uids=uids, pin_hash=pin_hash)
 
 
 def _section(raw: dict[str, Any], name: str) -> dict[str, Any]:

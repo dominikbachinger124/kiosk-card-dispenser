@@ -24,3 +24,6 @@ dist/
 
 # uv
 .venv/
+
+# Session-Gedaechtnis (temporaer, nicht committen)
+status.md

@@ -21,6 +21,9 @@ class CardStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+RETENTION_YEARS = 1
+
+
 @dataclass(frozen=True, slots=True)
 class Account:
     """One customer account. Identified only by the salted hash of the card UID.
@@ -36,6 +39,26 @@ class Account:
     id_hash: str
     created_at: datetime
     closed_at: datetime | None = None
+
+    @property
+    def is_closed(self) -> bool:
+        """True once the account is locked; no further bookings are possible."""
+        return self.closed_at is not None
+
+    def retention_until(self) -> datetime | None:
+        """Earliest time the closed account may be purged; None while open.
+
+        The retention period is one year after the closing time. Purging is
+        a separate, later step and is not part of the booking rules.
+        """
+        if self.closed_at is None:
+            return None
+        target_year = self.closed_at.year + RETENTION_YEARS
+        try:
+            return self.closed_at.replace(year=target_year)
+        except ValueError:
+            # 29 February has no counterpart in a non-leap year: use 1 March.
+            return self.closed_at.replace(year=target_year, day=1, month=3)
 
 
 @dataclass(frozen=True, slots=True)

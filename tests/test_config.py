@@ -32,6 +32,7 @@ def _raw(**overrides: object) -> dict[str, dict[str, object]]:
             "id_reader_device": "auto",
         },
         "privacy": {"id_hash_salt_env": "KIOSK_ID_HASH_SALT"},
+        "admin": {"admin_uids": ["AD01AD01"], "pin_hash": ""},
     }
     raw["money"].update(overrides)
     return raw
@@ -132,3 +133,41 @@ def test_repository_config_is_valid() -> None:
     assert config.money.gatekeeper_collection_cents == 2500
     assert config.app.cooldown_hours == 24
     assert config.app.cooldown_enforced is False
+
+
+def _admin(**overrides: object) -> dict[str, dict[str, object]]:
+    raw = _raw()
+    raw["admin"] = {"admin_uids": ["AD01AD01"], "pin_hash": "", **overrides}
+    return raw
+
+
+def test_admin_uids_are_normalized() -> None:
+    config = parse_config(_admin(admin_uids=["ad01ad01"]))
+
+    assert config.admin.admin_uids == ("AD01AD01",)
+
+
+def test_more_than_two_admin_uids_are_rejected() -> None:
+    with pytest.raises(ConfigError):
+        parse_config(_admin(admin_uids=["AA", "BB", "CC"]))
+
+
+def test_duplicate_admin_uids_are_rejected() -> None:
+    with pytest.raises(ConfigError):
+        parse_config(_admin(admin_uids=["AA", "aa"]))
+
+
+def test_invalid_admin_uid_is_rejected() -> None:
+    with pytest.raises(ConfigError):
+        parse_config(_admin(admin_uids=["NOTHEX"]))
+
+
+def test_clear_text_pin_is_rejected() -> None:
+    with pytest.raises(ConfigError):
+        parse_config(_admin(pin_hash="4711"))
+
+
+def test_scrypt_pin_hash_is_accepted() -> None:
+    config = parse_config(_admin(pin_hash="scrypt$16384$8$1$00$00"))
+
+    assert config.admin.pin_hash.startswith("scrypt$")

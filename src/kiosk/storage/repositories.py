@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 
 from kiosk.domain.entities import Account, Card, CardStatus, Session
 from kiosk.domain.errors import (
+    AccountClosedError,
     DuplicateOperationError,
     LedgerIntegrityError,
     NotFoundError,
@@ -62,6 +63,25 @@ class AccountRepository:
             raise NotFoundError(f"account {account_id} not found")
         return _account(row)
 
+    def list_all(self) -> list[Account]:
+        rows = self._conn.execute(
+            "SELECT id, id_hash, created_at, closed_at FROM accounts ORDER BY id"
+        ).fetchall()
+        return [_account(row) for row in rows]
+
+    def close(self, account_id: int, closed_at: datetime) -> None:
+        """Mark an open account as closed. Accounts are never deleted.
+
+        Raises:
+            NotFoundError: If the account does not exist or is already closed.
+        """
+        cursor = self._conn.execute(
+            "UPDATE accounts SET closed_at = ? WHERE id = ? AND closed_at IS NULL",
+            (_ts(closed_at), account_id),
+        )
+        if cursor.rowcount != 1:
+            raise NotFoundError(f"open account {account_id} not found")
+
     def find_by_hash(self, id_hash: str) -> Account | None:
         row = self._conn.execute(
             "SELECT id, id_hash, created_at, closed_at FROM accounts WHERE id_hash = ?",
@@ -77,6 +97,13 @@ class CardRepository:
         self._conn = conn
 
     def add(self, uid_hash: str, account_id: int, issued_at: datetime) -> Card:
+        closed = self._conn.execute(
+            "SELECT closed_at FROM accounts WHERE id = ?", (account_id,)
+        ).fetchone()
+        if closed is None:
+            raise NotFoundError(f"account {account_id} not found")
+        if closed["closed_at"] is not None:
+            raise AccountClosedError(f"account {account_id} is closed")
         cursor = self._conn.execute(
             "INSERT INTO cards (uid_hash, account_id, status, issued_at) "
             "VALUES (?, ?, 'active', ?)",
@@ -158,6 +185,8 @@ class LedgerRepository:
                 the entry was already reversed.
             LedgerIntegrityError: If a trigger or constraint rejects the row.
         """
+        if self._is_closed(entry.account_id):
+            raise AccountClosedError(f"account {entry.account_id} is closed")
         try:
             cursor = self._conn.execute(
                 "INSERT INTO ledger (account_id, card_id, entry_type, amount_cents, "
@@ -184,6 +213,12 @@ class LedgerRepository:
         except sqlite3.DatabaseError as exc:
             raise LedgerIntegrityError(_safe_db_message(str(exc))) from exc
         return _with_id(entry, _require_id(cursor))
+
+    def _is_closed(self, account_id: int) -> bool:
+        row = self._conn.execute(
+            "SELECT closed_at FROM accounts WHERE id = ?", (account_id,)
+        ).fetchone()
+        return row is not None and row["closed_at"] is not None
 
     def balance_cents(self, account_id: int) -> int:
         row = self._conn.execute(
@@ -236,6 +271,18 @@ class AuditRepository:
             "(occurred_at, action, account_id, outcome, detail) VALUES (?, ?, ?, ?, ?)",
             (_ts(occurred_at), action, account_id, outcome, detail),
         )
+
+    def count_failed_logins(self, since: datetime) -> int:
+        """Count failed admin logins at or after ``since``.
+
+        The count lives in the audit table, so a restart cannot reset a lockout.
+        """
+        row = self._conn.execute(
+            "SELECT COUNT(*) AS total FROM admin_audit "
+            "WHERE action = 'admin_login' AND outcome = 'failed' AND occurred_at >= ?",
+            (_ts(since),),
+        ).fetchone()
+        return int(row["total"])
 
 
 _CARD_SELECT = (

@@ -144,3 +144,33 @@ class BusyError(HardwareError):
     """The device is occupied by another operation and did not become free."""
 
     code = "BUSY"
+
+
+class AccountClosedError(KioskError):
+    """The account is already closed and accepts no further bookings."""
+
+    code = "ACCOUNT_CLOSED"
+
+
+class PayoutNotConfirmedError(KioskError):
+    """The payout was started without the explicit admin confirmation."""
+
+    code = "PAYOUT_NOT_CONFIRMED"
+
+
+class AdminAuthError(KioskError):
+    """Admin card or PIN is wrong. The message is deliberately generic."""
+
+    code = "ADMIN_AUTH_FAILED"
+
+
+class AdminLockedError(KioskError):
+    """Too many failed admin logins; access is blocked for a while."""
+
+    code = "ADMIN_LOCKED"
+
+
+class AdminSessionExpiredError(KioskError):
+    """The admin session timed out or was never opened."""
+
+    code = "ADMIN_SESSION_EXPIRED"

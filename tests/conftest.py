@@ -43,6 +43,10 @@ id_reader_device = "auto"
 
 [privacy]
 id_hash_salt_env = "KIOSK_ID_HASH_SALT"
+
+[admin]
+admin_uids = ["AD01AD01"]
+pin_hash = ""
 """
 
 

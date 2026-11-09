@@ -12,11 +12,17 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
 from collections.abc import Callable
 from typing import Protocol
 
-from kiosk.domain.errors import HardwareTimeoutError, PortLostError, ProtocolError
+from kiosk.domain.errors import (
+    HardwareTimeoutError,
+    PortLostError,
+    ProtocolError,
+    ReadCancelledError,
+)
 
 logger = logging.getLogger("kiosk.hardware.flipper_reader")
 
@@ -60,8 +66,12 @@ class FlipperIdReader:
         self._sleep = sleep
         self._timeout_s = timeout_s
 
-    def read_id(self) -> str:
+    def read_id(self, cancel: threading.Event | None = None) -> str:
         """Wait for one card and return its identifier.
+
+        Args:
+            cancel: Optional event. When set, the read stops early, the CLI is
+                interrupted and the port is closed. No signal is sent.
 
         Returns:
             Upper-case hexadecimal card identifier.
@@ -70,12 +80,13 @@ class FlipperIdReader:
             PortLostError: If the serial port cannot be opened or breaks.
             HardwareTimeoutError: If no card appears within the timeout.
             ProtocolError: If the device answers with an unexpected format.
+            ReadCancelledError: If ``cancel`` was set before a card was found.
         """
         link = self._open_link()
         try:
             link.reset_input()
             link.write(b"rfid read\r\n")
-            found = self._wait_for_card(link)
+            found = self._wait_for_card(link, cancel)
             self._stop(link)
             if found is None:
                 raise HardwareTimeoutError("no card within timeout")
@@ -90,10 +101,15 @@ class FlipperIdReader:
         except OSError as exc:
             raise PortLostError("flipper serial port unavailable") from exc
 
-    def _wait_for_card(self, link: SerialLink) -> str | None:
+    def _wait_for_card(
+        self, link: SerialLink, cancel: threading.Event | None
+    ) -> str | None:
         buffer = b""
         deadline = self._clock() + self._timeout_s
         while self._clock() < deadline:
+            if cancel is not None and cancel.is_set():
+                self._stop(link)
+                raise ReadCancelledError("card read cancelled")
             try:
                 chunk = link.read_available()
             except OSError as exc:

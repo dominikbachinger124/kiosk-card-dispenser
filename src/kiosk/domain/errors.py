@@ -153,6 +153,15 @@ class BusyError(HardwareError):
     code = "BUSY"
 
 
+class ReadCancelledError(KioskError):
+    """A card read was cancelled by the caller before a card was found.
+
+    Not a device fault: no card was read and no booking may follow.
+    """
+
+    code = "READ_CANCELLED"
+
+
 class AccountClosedError(KioskError):
     """The account is already closed and accepts no further bookings."""
 

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from kiosk.domain.errors import HardwareTimeoutError, PortLostError, ProtocolError
+from kiosk.domain.errors import (
+    HardwareTimeoutError,
+    PortLostError,
+    ProtocolError,
+    ReadCancelledError,
+)
 from kiosk.hardware.flipper_reader import FlipperIdReader
 
 
@@ -131,3 +136,22 @@ def test_unbounded_garbage_output_is_a_protocol_error() -> None:
 def test_non_positive_timeout_is_rejected() -> None:
     with pytest.raises(ValueError):
         FlipperIdReader(lambda: FakeLink([]), timeout_s=0)
+
+
+def test_cancel_stops_waiting_early_and_closes_port() -> None:
+    import threading
+
+    link = FakeLink([b"Reading RFID...\r\n"] * 1000)
+    cancel = threading.Event()
+    cancel.set()
+    reader = FlipperIdReader(
+        lambda: link,
+        clock=FakeClock(),
+        sleep=lambda _s: None,
+        timeout_s=60.0,
+    )
+
+    with pytest.raises(ReadCancelledError):
+        reader.read_id(cancel=cancel)
+    assert link.closed is True
+    assert b"vibro 1\r\n" not in link.writes

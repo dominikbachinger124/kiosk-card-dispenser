@@ -13,6 +13,10 @@ TEXTS: dict[str, dict[str, str]] = {
     "de": {
         "admin.title": "Administration",
         "main.title": "Kartenausgabe",
+        "main.poll.card_at_exit": "Karte am Ausgang.",
+        "error.PORT_LOST": "Geraet nicht erreichbar. Bitte Personal rufen.",
+        "error.HW_TIMEOUT": "Geraet antwortet nicht. Bitte Personal rufen.",
+        "error.HW_ERROR": "Geraetefehler. Bitte Personal rufen.",
         "main.action.issue": "Neue Karte",
         "main.action.topup": "Konto aufladen",
         "main.admin.unavailable": "Administration nicht konfiguriert.",
@@ -70,6 +74,10 @@ TEXTS: dict[str, dict[str, str]] = {
     "en": {
         "admin.title": "Administration",
         "main.title": "Card dispenser",
+        "main.poll.card_at_exit": "Card at the exit.",
+        "error.PORT_LOST": "Device not reachable. Please call staff.",
+        "error.HW_TIMEOUT": "Device does not respond. Please call staff.",
+        "error.HW_ERROR": "Device error. Please call staff.",
         "main.action.issue": "New card",
         "main.action.topup": "Top up account",
         "main.admin.unavailable": "Administration not configured.",

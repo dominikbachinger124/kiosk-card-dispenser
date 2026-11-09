@@ -54,6 +54,23 @@ class MainWindowBridge(QObject):
         return translate(key, self._language)
 
     @Slot()
+    def onCardInserted(self) -> None:
+        """Show that a card is waiting at the exit. Called from the worker signal."""
+        self._status = translate("main.poll.card_at_exit", self._language)
+        self.statusChanged.emit()
+
+    @Slot(str)
+    def onPollFailed(self, error_code: str) -> None:
+        """Show a translated text for a failed hardware poll. Never the raw code."""
+        key = f"error.{error_code}"
+        text = translate(key, self._language)
+        # Unknown codes fall back to the key itself; show the generic line instead.
+        self._status = (
+            text if text != key else translate("error.HW_ERROR", self._language)
+        )
+        self.statusChanged.emit()
+
+    @Slot()
     def startIssue(self) -> None:
         self._set_status(self._customer.start_issue())
 

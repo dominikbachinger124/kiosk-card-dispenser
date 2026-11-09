@@ -98,3 +98,34 @@ def test_topup_action_calls_customer_flow_and_sets_status(qt_app: object) -> Non
 
     assert customer.topup_calls == 1
     assert bridge.status == "Konto aufgeladen."  # type: ignore[attr-defined]
+
+
+def test_card_inserted_signal_shows_card_at_exit_status(qt_app: object) -> None:
+    keep = _create(_FakeCustomer(), None)
+    bridge = keep[1]
+
+    bridge.onCardInserted()
+
+    assert bridge.status == "Karte am Ausgang."  # type: ignore[attr-defined]
+
+
+def test_poll_failed_shows_error_code_text(qt_app: object) -> None:
+    keep = _create(_FakeCustomer(), None)
+    bridge = keep[1]
+
+    bridge.onPollFailed("PORT_LOST")
+
+    status = bridge.status  # type: ignore[attr-defined]
+    assert "PORT_LOST" not in status
+    assert status == "Geraet nicht erreichbar. Bitte Personal rufen."
+
+
+def test_unknown_poll_error_code_falls_back_to_generic_text(qt_app: object) -> None:
+    keep = _create(_FakeCustomer(), None)
+    bridge = keep[1]
+
+    bridge.onPollFailed("SOMETHING_NEW")
+
+    status = bridge.status  # type: ignore[attr-defined]
+    assert "error." not in status
+    assert status == "Geraetefehler. Bitte Personal rufen."

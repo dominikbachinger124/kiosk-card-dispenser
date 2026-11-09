@@ -181,3 +181,14 @@ def test_admin_login_fails_closed_without_admin_configuration(
 
     # No admin service exists at all, so no login can succeed.
     assert app.admin_auth is None
+
+
+def test_app_exposes_coordinator_for_the_polling_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from kiosk.hardware.coordinator import HardwareCoordinator
+
+    monkeypatch.setenv(SALT_ENV, SALT_VALUE)
+    app = build_app(_config(tmp_path), db_path=tmp_path / "kiosk.db")
+
+    assert isinstance(app.coordinator, HardwareCoordinator)

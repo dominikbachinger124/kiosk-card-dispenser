@@ -61,6 +61,7 @@ class KioskApp:
     applied_migrations: list[str]
     issue: IssueCardService
     id_reader: FlipperIdReader
+    coordinator: HardwareCoordinator
     topup: TopUpService
     faults: FaultService
     admin_auth: AdminAuthService | None
@@ -173,6 +174,7 @@ def build_app(
         applied_migrations=applied,
         issue=issue,
         id_reader=id_reader,
+        coordinator=coordinator,
         topup=top_up,
         faults=faults,
         admin_auth=admin_auth,

@@ -49,13 +49,16 @@ TEXTS: dict[str, dict[str, str]] = {
         "error.KIOSK_ERROR": "Es ist ein Fehler aufgetreten.",
         "issue.jam_notice": (
             "Leider ist ein technischer Fehler aufgetreten. "
-            "Ihre Buchung kann nicht abgeschlossen werden. "
-            "Bitte wenden Sie sich an das Personal. "
-            "Zeit: {time}. Konto: {account}."
+            "Es wurde nichts gebucht. Bitte wenden Sie sich an das Personal."
         ),
         "issue.empty_notice": (
             "Derzeit sind keine Karten verfügbar. "
-            "Bitte wenden Sie sich an das Personal. Zeit: {time}."
+            "Bitte wenden Sie sich an das Personal."
+        ),
+        "issue.success": "Karte ausgegeben. Guthaben {balance}, Pfand {deposit}.",
+        "topup.success": "Konto aufgeladen. Guthaben plus {amount}.",
+        "topup.unknown_account": (
+            "Für diesen Ausweis gibt es kein Konto. Bitte Personal fragen."
         ),
     },
     "en": {
@@ -97,11 +100,15 @@ TEXTS: dict[str, dict[str, str]] = {
         "error.KIOSK_ERROR": "An error occurred.",
         "issue.jam_notice": (
             "Unfortunately a technical error occurred. "
-            "Your booking cannot be completed. "
-            "Please contact the staff. Time: {time}. Account: {account}."
+            "Nothing was booked. Please contact the staff."
         ),
         "issue.empty_notice": (
-            "No cards are currently available. Please contact the staff. Time: {time}."
+            "No cards are currently available. Please contact the staff."
+        ),
+        "issue.success": "Card issued. Balance {balance}, deposit {deposit}.",
+        "topup.success": "Account topped up. Balance plus {amount}.",
+        "topup.unknown_account": (
+            "There is no account for this ID. Please ask the staff."
         ),
     },
 }

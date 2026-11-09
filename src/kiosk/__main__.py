@@ -47,6 +47,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="load the main window offscreen and exit; no event loop, no hardware",
     )
     parser.add_argument(
+        "--bootstrap-only",
+        action="store_true",
+        help="run the bootstrap and exit without starting the window (diagnosis)",
+    )
+    parser.add_argument(
         "--db",
         type=Path,
         default=None,
@@ -71,8 +76,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_smoke(app)
         print("smoke ok")
         return 0
-    print("bootstrap ok")
-    return 0
+    if args.bootstrap_only:
+        print("bootstrap ok")
+        return 0
+    from kiosk.gui.app import run_app
+
+    return run_app(app)
 
 
 if __name__ == "__main__":

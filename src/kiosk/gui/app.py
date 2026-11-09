@@ -7,9 +7,12 @@ window and returns at once, so a start can be checked without an event loop.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from kiosk.bootstrap import KioskApp
+
+logger = logging.getLogger("kiosk.gui.app")
 
 MAIN_QML = Path(__file__).resolve().parent / "qml" / "Main.qml"
 
@@ -53,6 +56,38 @@ def build_window(app: KioskApp) -> tuple[object, ...]:
     if root is None:
         raise RuntimeError("QML root could not be created")
     return engine, bridge, component, root
+
+
+def run_app(app: KioskApp) -> int:
+    """Run the kiosk: window, polling thread and Qt event loop until quit.
+
+    The polling thread starts before the event loop and is stopped and joined
+    before the function returns, so the process exits without a live device
+    thread.
+
+    Returns:
+        The Qt event-loop exit code.
+    """
+    from PySide6.QtGui import QGuiApplication
+
+    from kiosk.gui.main_window import MainWindowBridge
+    from kiosk.gui.runtime import PollingRuntime
+
+    qapp = QGuiApplication.instance() or QGuiApplication([])
+    window = build_window(app)
+    bridge = window[1]
+    if not isinstance(bridge, MainWindowBridge):
+        raise RuntimeError("main window bridge missing")
+    runtime = PollingRuntime(app.coordinator, bridge)
+    runtime.start()
+    try:
+        return int(qapp.exec())
+    finally:
+        if not runtime.stop():
+            # The thread did not end in time. Exit anyway so the kiosk stays
+            # responsive; the device keeps its last state (fail closed).
+            logger.error("polling_stop_timeout", extra={"error_code": "HW_TIMEOUT"})
+        del window
 
 
 def run_smoke(app: KioskApp) -> int:

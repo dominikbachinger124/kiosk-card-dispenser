@@ -23,11 +23,35 @@ def test_start_runs_bootstrap_and_reports_ok(
     path = tmp_path / "config.toml"
     path.write_text(VALID_CONFIG_TOML, encoding="utf-8")
 
-    code = main(["--config", str(path), "--db", str(tmp_path / "kiosk.db")])
+    code = main(
+        ["--config", str(path), "--db", str(tmp_path / "kiosk.db"), "--bootstrap-only"]
+    )
 
     assert code == 0
     assert "bootstrap ok" in capsys.readouterr().out
     assert (tmp_path / "kiosk.db").exists()
+
+
+def test_default_start_runs_the_kiosk_loop(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without a flag the kiosk runs its event loop; run_app is stubbed here."""
+    monkeypatch.setenv(SALT_ENV, "x" * 32)
+    started: list[object] = []
+
+    def fake_run_app(app: object) -> int:
+        started.append(app)
+        return 7
+
+    monkeypatch.setattr("kiosk.gui.app.run_app", fake_run_app)
+    path = tmp_path / "config.toml"
+    path.write_text(VALID_CONFIG_TOML, encoding="utf-8")
+
+    code = main(["--config", str(path), "--db", str(tmp_path / "kiosk.db")])
+
+    assert code == 7
+    assert len(started) == 1
 
 
 def test_start_without_salt_exits_nonzero(

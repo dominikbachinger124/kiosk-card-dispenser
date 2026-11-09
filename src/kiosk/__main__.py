@@ -42,6 +42,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="path to the TOML configuration file",
     )
     parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="load the main window offscreen and exit; no event loop, no hardware",
+    )
+    parser.add_argument(
         "--db",
         type=Path,
         default=None,
@@ -54,12 +59,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             load_config(args.config)
             print("config ok")
             return 0
-        build_app(args.config, db_path=args.db)
+        app = build_app(args.config, db_path=args.db)
     except ConfigError:
         # Only the stable code is printed. The message may name a path or key
         # that is operator-specific, so it stays out of the output.
         print("CONFIG_INVALID", file=sys.stderr)
         return 2
+    if args.smoke:
+        from kiosk.gui.app import run_smoke
+
+        run_smoke(app)
+        print("smoke ok")
+        return 0
     print("bootstrap ok")
     return 0
 

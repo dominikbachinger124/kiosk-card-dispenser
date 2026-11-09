@@ -102,8 +102,15 @@ def test_build_exposes_services_without_opening_hardware(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(SALT_ENV, SALT_VALUE)
+    # Structural placeholder only, so the admin service gets built. The PIN
+    # hashing itself is not under test here and is finalized later.
+    text = VALID_CONFIG_TOML.replace(
+        'pin_hash = ""', 'pin_hash = "scrypt$16384$8$1$00$00"'
+    )
+    path = tmp_path / "config.toml"
+    path.write_text(text, encoding="utf-8")
 
-    app = build_app(_config(tmp_path), db_path=tmp_path / "kiosk.db")
+    app = build_app(path, db_path=tmp_path / "kiosk.db")
 
     assert app.issue is not None
     assert app.id_reader is not None
@@ -147,13 +154,30 @@ def _no_open(path: str) -> object:
     raise AssertionError("no port may be opened during startup")
 
 
-def test_empty_admin_config_is_a_config_error_not_a_traceback(
+def test_kiosk_starts_without_admin_configuration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Admin is optional at startup. Customers must still be able to use the kiosk."""
+    monkeypatch.setenv(SALT_ENV, SALT_VALUE)
+    text = VALID_CONFIG_TOML.replace('admin_uids = ["AD01AD01"]', "admin_uids = []")
+    path = tmp_path / "config.toml"
+    path.write_text(text, encoding="utf-8")
+
+    app = build_app(path, db_path=tmp_path / "kiosk.db")
+
+    assert app.issue is not None
+    assert app.topup is not None
+    assert app.admin_auth is None
+
+
+def test_admin_login_fails_closed_without_admin_configuration(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(SALT_ENV, SALT_VALUE)
     text = VALID_CONFIG_TOML.replace('admin_uids = ["AD01AD01"]', "admin_uids = []")
     path = tmp_path / "config.toml"
     path.write_text(text, encoding="utf-8")
+    app = build_app(path, db_path=tmp_path / "kiosk.db")
 
-    with pytest.raises(ConfigError, match="admin"):
-        build_app(path, db_path=tmp_path / "kiosk.db", open_serial=_no_open)
+    # No admin service exists at all, so no login can succeed.
+    assert app.admin_auth is None

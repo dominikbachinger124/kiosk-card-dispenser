@@ -51,7 +51,8 @@ class KioskApp:
         issue: Issue flow for new and additional cards.
         topup: Fixed top-up flow for existing accounts.
         faults: Device fault recording and admin acknowledgement.
-        admin_auth: Admin login with card and PIN.
+        admin_auth: Admin login with card and PIN, or None while the admin
+            configuration is incomplete. Admin stays locked in that case.
         admin_payout: Admin cash payout for the last card.
         admin_session: Idle-timeout tracking for admin sessions.
     """
@@ -62,7 +63,7 @@ class KioskApp:
     id_reader: FlipperIdReader
     topup: TopUpService
     faults: FaultService
-    admin_auth: AdminAuthService
+    admin_auth: AdminAuthService | None
     admin_payout: AdminPayoutService
     admin_session: AdminSessionGuard
 
@@ -152,18 +153,18 @@ def build_app(
         deposit=deposit,
         collection=collection,
     )
-    try:
+    # Admin is optional at startup. AdminCredentials refuses an incomplete
+    # setup; in that case the admin login is simply not offered and the
+    # customer flows keep running (fail closed for admin, not for the kiosk).
+    admin_auth: AdminAuthService | None = None
+    if config.admin.admin_uids and config.admin.pin_hash:
         credentials = AdminCredentials(
             admin_uid_hashes=tuple(
                 hasher.hash_uid(uid) for uid in config.admin.admin_uids
             ),
             pin_hash=config.admin.pin_hash,
         )
-    except ValueError as exc:
-        # The config layer allows empty admin values for a fresh setup. The
-        # kiosk cannot start without an admin, so this is a configuration error.
-        raise ConfigError("admin credentials are not configured") from exc
-    admin_auth = AdminAuthService(credentials, hasher, uow, clock_impl)
+        admin_auth = AdminAuthService(credentials, hasher, uow, clock_impl)
     admin_payout = AdminPayoutService(uow, clock_impl, deposit=deposit)
     top_up = TopUpService(uow, clock_impl, topup=topup)
 

@@ -76,7 +76,6 @@ class IssueCardService:
         topup: Balance credit per card (2000 cent).
         deposit: Pfand per card (500 cent).
         collection: Cash collected by the gatekeeper per card (2500 cent).
-        sleep: Pause between the handout and the read, injected for tests.
     """
 
     def __init__(

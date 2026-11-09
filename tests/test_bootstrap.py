@@ -105,10 +105,55 @@ def test_build_exposes_services_without_opening_hardware(
 
     app = build_app(_config(tmp_path), db_path=tmp_path / "kiosk.db")
 
-    # The issue flow needs a CardDispenser. That adapter is wired in the next
-    # step, so it is explicitly absent here instead of silently faked.
-    assert app.issue is None
+    assert app.issue is not None
+    assert app.id_reader is not None
     assert app.topup is not None
     assert app.faults is not None
     assert app.admin_auth is not None
     assert app.admin_payout is not None
+
+
+def test_build_wires_issue_flow_without_opening_any_port(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(SALT_ENV, SALT_VALUE)
+    opened: list[str] = []
+
+    def _open(path: str) -> object:
+        opened.append(path)
+        raise AssertionError("no port may be opened during startup")
+
+    app = build_app(_config(tmp_path), db_path=tmp_path / "kiosk.db", open_serial=_open)
+
+    assert opened == []
+    assert app.issue is not None
+
+
+def test_collection_mismatch_is_a_config_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(SALT_ENV, SALT_VALUE)
+    text = VALID_CONFIG_TOML.replace(
+        "gatekeeper_collection_cents = 2500", "gatekeeper_collection_cents = 2600"
+    )
+    path = tmp_path / "config.toml"
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="collection"):
+        build_app(path, db_path=tmp_path / "kiosk.db", open_serial=_no_open)
+
+
+def _no_open(path: str) -> object:
+    raise AssertionError("no port may be opened during startup")
+
+
+def test_empty_admin_config_is_a_config_error_not_a_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(SALT_ENV, SALT_VALUE)
+    text = VALID_CONFIG_TOML.replace('admin_uids = ["AD01AD01"]', "admin_uids = []")
+    path = tmp_path / "config.toml"
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="admin"):
+        build_app(path, db_path=tmp_path / "kiosk.db", open_serial=_no_open)

@@ -11,6 +11,8 @@ The card-ID salt comes from the environment, never from the repository.
 from __future__ import annotations
 
 import os
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -20,10 +22,16 @@ from kiosk.domain.clock import Clock, SystemClock
 from kiosk.domain.errors import ConfigError
 from kiosk.domain.identity import MIN_SALT_BYTES, CardIdHasher
 from kiosk.domain.money import Money
+from kiosk.hardware.coordinated import CoordinatedDispenser
+from kiosk.hardware.coordinator import HardwareCoordinator
+from kiosk.hardware.flipper_reader import FlipperIdReader
+from kiosk.hardware.k720 import K720Dispenser
+from kiosk.hardware.serial_port import LazySerialPort, open_pyserial
 from kiosk.services.admin_auth import AdminAuthService, AdminCredentials
 from kiosk.services.admin_payout import AdminPayoutService
 from kiosk.services.admin_session import AdminSessionGuard
 from kiosk.services.faults import FaultService
+from kiosk.services.issue_card import IssueCardService
 from kiosk.services.topup import TopUpService
 from kiosk.storage.database import connect, migrate
 from kiosk.storage.unit_of_work import UnitOfWorkFactory
@@ -50,7 +58,8 @@ class KioskApp:
 
     config: KioskConfig
     applied_migrations: list[str]
-    issue: Any
+    issue: IssueCardService
+    id_reader: FlipperIdReader
     topup: TopUpService
     faults: FaultService
     admin_auth: AdminAuthService
@@ -85,6 +94,7 @@ def build_app(
     *,
     db_path: Path | None = None,
     clock: Clock | None = None,
+    open_serial: Callable[[str], Any] | None = None,
 ) -> KioskApp:
     """Validate configuration, prepare the database and wire the services.
 
@@ -92,6 +102,8 @@ def build_app(
         config_path: Location of the TOML configuration.
         db_path: Database file. Defaults to ``~/.local/share/kiosk/kiosk.db``.
         clock: Time source. Defaults to the system clock.
+        open_serial: Opener for a serial device path. Defaults to pyserial.
+            Stored in lazy ports; never called at startup.
 
     Returns:
         The wired application.
@@ -114,13 +126,43 @@ def build_app(
     money = config.money
     topup = Money(money.topup_cents)
     deposit = Money(money.deposit_cents)
+    collection = Money(money.gatekeeper_collection_cents)
+    if topup.cents + deposit.cents != collection.cents:
+        raise ConfigError(
+            "money.gatekeeper_collection_cents must equal topup_cents + deposit_cents"
+        )
+
+    opener = open_serial or open_pyserial
+    k720_port = LazySerialPort(config.hardware.k720_port, opener)
+    flipper_port = LazySerialPort(config.hardware.flipper_port, opener)
+    raw_dispenser = K720Dispenser(k720_port, clock=time.monotonic, sleep=time.sleep)
+    coordinator = HardwareCoordinator(raw_dispenser)
+    dispenser = CoordinatedDispenser(raw_dispenser, coordinator)
+    id_reader = FlipperIdReader(lambda: flipper_port)
 
     admin_session = AdminSessionGuard(clock_impl)
     faults = FaultService(uow, clock_impl, admin_session)
-    credentials = AdminCredentials(
-        admin_uid_hashes=tuple(hasher.hash_uid(uid) for uid in config.admin.admin_uids),
-        pin_hash=config.admin.pin_hash,
+    issue = IssueCardService(
+        dispenser,
+        uow,
+        hasher,
+        faults,
+        clock_impl,
+        topup=topup,
+        deposit=deposit,
+        collection=collection,
     )
+    try:
+        credentials = AdminCredentials(
+            admin_uid_hashes=tuple(
+                hasher.hash_uid(uid) for uid in config.admin.admin_uids
+            ),
+            pin_hash=config.admin.pin_hash,
+        )
+    except ValueError as exc:
+        # The config layer allows empty admin values for a fresh setup. The
+        # kiosk cannot start without an admin, so this is a configuration error.
+        raise ConfigError("admin credentials are not configured") from exc
     admin_auth = AdminAuthService(credentials, hasher, uow, clock_impl)
     admin_payout = AdminPayoutService(uow, clock_impl, deposit=deposit)
     top_up = TopUpService(uow, clock_impl, topup=topup)
@@ -128,7 +170,8 @@ def build_app(
     return KioskApp(
         config=config,
         applied_migrations=applied,
-        issue=None,  # wired to the dispenser in the hardware step
+        issue=issue,
+        id_reader=id_reader,
         topup=top_up,
         faults=faults,
         admin_auth=admin_auth,

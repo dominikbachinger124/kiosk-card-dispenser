@@ -1,8 +1,9 @@
 """Command-line entry point for the kiosk.
 
-Only ``--check-config`` is implemented so far. It validates the configuration
-and touches no hardware. Output never contains device paths, admin UIDs or
-PIN hashes.
+``--check-config`` validates the configuration and touches no hardware.
+Without it, the kiosk bootstraps: configuration, salt, database and services.
+No serial port is opened at startup. Output never contains device paths,
+admin UIDs or PIN hashes.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from kiosk.bootstrap import build_app
 from kiosk.config import load_config
 from kiosk.domain.errors import ConfigError
 
@@ -39,20 +41,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=DEFAULT_CONFIG_PATH,
         help="path to the TOML configuration file",
     )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="database file (default: ~/.local/share/kiosk/kiosk.db)",
+    )
     args = parser.parse_args(argv)
 
-    if not args.check_config:
-        parser.print_help(sys.stderr)
-        return 1
-
     try:
-        load_config(args.config)
+        if args.check_config:
+            load_config(args.config)
+            print("config ok")
+            return 0
+        build_app(args.config, db_path=args.db)
     except ConfigError:
         # Only the stable code is printed. The message may name a path or key
         # that is operator-specific, so it stays out of the output.
         print("CONFIG_INVALID", file=sys.stderr)
         return 2
-    print("config ok")
+    print("bootstrap ok")
     return 0
 
 

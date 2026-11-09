@@ -27,7 +27,7 @@ def _raw(**overrides: object) -> dict[str, dict[str, object]]:
             "mode": "real",
             "k720_port": "/dev/serial/by-id/test-device",
             "serial_baudrate": 9600,
-            "id_reader_device": "auto",
+            "flipper_port": "/dev/serial/by-id/test-flipper",
         },
         "privacy": {"id_hash_salt_env": "KIOSK_ID_HASH_SALT"},
         "admin": {"admin_uids": ["AD01AD01"], "pin_hash": ""},
@@ -115,11 +115,7 @@ def test_invalid_toml_raises_config_error(tmp_path: Path) -> None:
 
 
 def test_repository_config_is_valid() -> None:
-    """The versioned config.toml must itself pass validation.
-
-    The K720 port and baud rate are placeholders until the device is wired up;
-    the baud rate must not be guessed, so only the schema is checked here.
-    """
+    """The versioned config.toml must itself pass validation."""
     repo_config = Path(__file__).resolve().parents[1] / "config.toml"
 
     config = load_config(repo_config)
@@ -127,6 +123,26 @@ def test_repository_config_is_valid() -> None:
     assert config.money.topup_cents == 2000
     assert config.money.deposit_cents == 500
     assert config.money.gatekeeper_collection_cents == 2500
+    assert config.hardware.serial_baudrate == 9600
+    assert config.hardware.flipper_port.startswith("/dev/serial/by-id/")
+
+
+def test_flipper_port_is_required() -> None:
+    raw = _raw()
+    del raw["hardware"]["flipper_port"]
+
+    with pytest.raises(ConfigError, match=r"hardware\.flipper_port"):
+        parse_config(raw)
+
+
+def test_legacy_id_reader_device_key_is_not_accepted() -> None:
+    """The former HID key must not silently replace the Flipper port."""
+    raw = _raw()
+    del raw["hardware"]["flipper_port"]
+    raw["hardware"]["id_reader_device"] = "auto"
+
+    with pytest.raises(ConfigError, match=r"hardware\.flipper_port"):
+        parse_config(raw)
 
 
 def _admin(**overrides: object) -> dict[str, dict[str, object]]:

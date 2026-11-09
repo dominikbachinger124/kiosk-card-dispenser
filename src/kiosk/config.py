@@ -55,13 +55,13 @@ class HardwareConfig:
         mode: Operating mode; only ``"real"`` is allowed.
         k720_port: Serial device path, preferably ``/dev/serial/by-id/...``.
         serial_baudrate: Baud rate from the verified vendor protocol.
-        id_reader_device: USB-HID reader device or ``"auto"``.
+        flipper_port: Serial device path of the Flipper Zero ID reader.
     """
 
     mode: str
     k720_port: str
     serial_baudrate: int
-    id_reader_device: str
+    flipper_port: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,7 +156,7 @@ def parse_config(raw: dict[str, Any]) -> KioskConfig:
             mode=_choice(hardware, "hardware", "mode", (_OPERATING_MODE,)),
             k720_port=_non_empty_str(hardware, "hardware", "k720_port"),
             serial_baudrate=_non_negative_int(hardware, "hardware", "serial_baudrate"),
-            id_reader_device=_non_empty_str(hardware, "hardware", "id_reader_device"),
+            flipper_port=_non_empty_str(hardware, "hardware", "flipper_port"),
         ),
         privacy=PrivacyConfig(
             id_hash_salt_env=_non_empty_str(privacy, "privacy", "id_hash_salt_env"),

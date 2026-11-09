@@ -37,7 +37,7 @@ default_payment_cents = 200
 mode = "real"
 k720_port = "/dev/serial/by-id/test-device"
 serial_baudrate = 9600
-id_reader_device = "auto"
+flipper_port = "/dev/serial/by-id/test-flipper"
 
 [privacy]
 id_hash_salt_env = "KIOSK_ID_HASH_SALT"

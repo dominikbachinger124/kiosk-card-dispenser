@@ -63,9 +63,9 @@ default_payment_cents = 200
 
 [hardware]
 mode = "real"
-k720_port = "/dev/serial/by-id/REPLACE_WITH_DEVICE"
-serial_baudrate = 0 # Nur nach verifiziertem Protokoll ausfuellen
-id_reader_device = "auto"
+k720_port = "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A402W7SS-if00-port0"
+serial_baudrate = 9600 # docs/k720_protocol.md: 9600 8N1
+flipper_port = "/dev/serial/by-id/usb-Flipper_Devices_Inc._Flipper_Ienfodna_flip_Ienfodna-if00" # Flipper Zero, serieller CLI-Port
 
 [admin]
 admin_uids = [] # 1-2 konfigurierte UIDs lokal bereitstellen, keine Secrets committen

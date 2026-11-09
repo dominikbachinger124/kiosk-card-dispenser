@@ -12,6 +12,12 @@ SUPPORTED_LANGUAGES = ("de", "en")
 TEXTS: dict[str, dict[str, str]] = {
     "de": {
         "admin.title": "Administration",
+        "main.title": "Kartenausgabe",
+        "main.action.issue": "Neue Karte",
+        "main.action.topup": "Konto aufladen",
+        "main.admin.unavailable": "Administration nicht konfiguriert.",
+        "main.status.issued": "Karte ausgegeben.",
+        "main.status.topped_up": "Konto aufgeladen.",
         "admin.login.prompt": "Admin-Karte auflegen und PIN eingeben",
         "admin.login.pin_label": "PIN",
         "admin.login.submit": "Anmelden",
@@ -63,6 +69,12 @@ TEXTS: dict[str, dict[str, str]] = {
     },
     "en": {
         "admin.title": "Administration",
+        "main.title": "Card dispenser",
+        "main.action.issue": "New card",
+        "main.action.topup": "Top up account",
+        "main.admin.unavailable": "Administration not configured.",
+        "main.status.issued": "Card issued.",
+        "main.status.topped_up": "Account topped up.",
         "admin.login.prompt": "Place admin card and enter PIN",
         "admin.login.pin_label": "PIN",
         "admin.login.submit": "Log in",

@@ -9,6 +9,8 @@ so no widget is touched from the polling thread.
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from PySide6.QtCore import Qt, QThread
 
 from kiosk.gui.main_window import MainWindowBridge
@@ -16,6 +18,12 @@ from kiosk.hardware.coordinator import HardwareCoordinator
 from kiosk.hardware.polling import POLL_INTERVAL_S, PollingWorker
 
 STOP_TIMEOUT_MS = 3000
+
+
+class _Stoppable(Protocol):
+    """Anything with a ``stop()`` that reports whether it ended in time."""
+
+    def stop(self) -> bool: ...
 
 
 class _PollingThread(QThread):
@@ -77,3 +85,17 @@ class PollingRuntime:
     def is_running(self) -> bool:
         """True while the polling thread is alive."""
         return bool(self._thread.isRunning())
+
+
+def shutdown_threads(runtime: PollingRuntime, watch: _Stoppable) -> bool:
+    """Stop every background thread of the kiosk before the process exits.
+
+    Both stops are attempted even if one of them times out, so a slow watch
+    cannot keep the polling thread alive.
+
+    Returns:
+        True if all threads ended within their timeouts. False otherwise.
+    """
+    polling_clean = runtime.stop()
+    watch_clean = watch.stop()
+    return polling_clean and watch_clean

@@ -138,3 +138,28 @@ def test_no_serial_port_is_opened_without_polling(tmp_path: Path) -> None:
 
     assert dispenser.polls == 0
     assert threading.active_count() >= 1
+
+
+def test_shutdown_stops_polling_and_watch(qt_app: Any) -> None:
+    """Shutdown ends the polling thread and any running forgotten-card watch."""
+    from kiosk.gui.main_window import MainWindowBridge
+    from kiosk.gui.runtime import PollingRuntime, shutdown_threads
+
+    bridge = MainWindowBridge(customer=None, admin=None)
+    dispenser = _ScriptedDispenser([])
+    runtime = PollingRuntime(HardwareCoordinator(dispenser), bridge, interval_s=0.01)
+    runtime.start()
+    assert _wait_for(lambda: dispenser.polls >= 2)
+
+    stopped_watch: list[bool] = []
+
+    class _Watch:
+        def stop(self) -> bool:
+            stopped_watch.append(True)
+            return True
+
+    clean = shutdown_threads(runtime, _Watch())
+
+    assert clean is True
+    assert not runtime.is_running()
+    assert stopped_watch == [True]

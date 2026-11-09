@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Protocol
 
 from kiosk.bootstrap import KioskApp
 
@@ -44,20 +45,64 @@ def build_window(app: KioskApp) -> tuple[object, ...]:
     return engine, bridge, component, root
 
 
+def request_quit() -> None:
+    """End the Qt event loop. Safe to call from a slot or a timer.
+
+    Signal handlers must not call Qt directly; they go through this function
+    via the event loop.
+    """
+    from PySide6.QtCore import QCoreApplication
+
+    QCoreApplication.quit()
+
+
+def install_signal_handlers() -> None:
+    """Route SIGINT and SIGTERM to a clean quit of the event loop.
+
+    Qt blocks Python's signal handling while it runs. A short periodic timer
+    gives Python a chance to run the handler, so Ctrl-C works in the kiosk.
+    """
+    import signal
+
+    def _handle(_signum: int, _frame: object) -> None:
+        request_quit()
+
+    signal.signal(signal.SIGINT, _handle)
+    signal.signal(signal.SIGTERM, _handle)
+
+
+def stop_background(runtime: _Stoppable, watch: _Stoppable) -> bool:
+    """Stop the polling runtime and the forgotten-card watch.
+
+    Both are attempted even if one times out.
+
+    Returns:
+        True if both ended within their timeouts.
+    """
+    polling_clean = runtime.stop()
+    watch_clean = watch.stop()
+    return polling_clean and watch_clean
+
+
+class _Stoppable(Protocol):
+    def stop(self) -> bool: ...
+
+
 def run_app(app: KioskApp) -> int:
     """Run the kiosk: window, polling thread and Qt event loop until quit.
 
-    The polling thread starts before the event loop and is stopped and joined
-    before the function returns, so the process exits without a live device
-    thread.
+    The polling thread and the forgotten-card watch are started before the
+    event loop and stopped and joined before the function returns, so the
+    process exits without a live device thread.
 
     Returns:
         The Qt event-loop exit code.
     """
+    from PySide6.QtCore import QTimer
     from PySide6.QtGui import QGuiApplication
 
     from kiosk.gui.main_window import MainWindowBridge
-    from kiosk.gui.runtime import PollingRuntime
+    from kiosk.gui.runtime import PollingRuntime, shutdown_threads
 
     qapp = QGuiApplication.instance() or QGuiApplication([])
     window = build_window(app)
@@ -66,13 +111,20 @@ def run_app(app: KioskApp) -> int:
         raise RuntimeError("main window bridge missing")
     runtime = PollingRuntime(app.coordinator, bridge)
     runtime.start()
+    install_signal_handlers()
+    # Qt does not run Python signal handlers while blocked in exec(). This
+    # timer wakes the interpreter about every 200 ms so Ctrl-C is seen.
+    wakeup = QTimer()
+    wakeup.timeout.connect(lambda: None)
+    wakeup.start(200)
     try:
         return int(qapp.exec())
     finally:
-        if not runtime.stop():
-            # The thread did not end in time. Exit anyway so the kiosk stays
+        wakeup.stop()
+        if not shutdown_threads(runtime, app.watch):
+            # A thread did not end in time. Exit anyway so the kiosk stays
             # responsive; the device keeps its last state (fail closed).
-            logger.error("polling_stop_timeout", extra={"error_code": "HW_TIMEOUT"})
+            logger.error("shutdown_timeout", extra={"error_code": "HW_TIMEOUT"})
         del window
 
 

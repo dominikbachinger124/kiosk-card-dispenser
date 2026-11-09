@@ -10,7 +10,7 @@ Task 00 und 01 abgeschlossen, Tests gruen. Lies `docs/architecture.md`, `docs/se
 1. **ZUERST** pruefen, ob `docs/k720_protocol.md` noch `PLACEHOLDER` enthaelt.
 2. Interfaces `CardDispenser` und `IdReader` als Python Protocols definieren, an Architektur und benoetigte Serviceablaeufe anpassen. Methodennamen sind Annahmen; keine Annahme ist ein Hardwarebefehl.
 3. `FakeDispenser` und `FakeIdReader` ausschliesslich in Testkontext implementieren. Sicherstellen, dass App-Betriebsprofil sie nicht aktivieren kann.
-4. `HidIdReader` fuer USB-HID-Keyboard-Emulation mit begrenztem Eingabepuffer, Timeout und konfigurierbarem Device implementieren; Rohkennung nie loggen.
+4. ~~`HidIdReader` (USB-HID)~~ gestrichen: Ausweisleser ist der Flipper Zero (`FlipperIdReader`), kein USB-HID (CLAUDE.md).
 5. Wenn Protokolldatei noch `PLACEHOLDER` enthaelt: **STOPP fuer `K720Dispenser` und alle seriellen Kommandos.** Nur Interfaces, Fakes, HID-Reader und unabhaengige Tests bauen; Nutzer nach der echten Protokollbeschreibung fragen. Keine Befehle, Baudrate, Statuscodes oder Frames raten.
 6. Nur wenn alle Platzhalter durch vollstaendige, echte Herstellerangaben ersetzt sind: `K720Dispenser` mit pyserial exakt nach `docs/k720_protocol.md` implementieren. Verifizierte Parameter, IO-Timeouts, definierte Fehlertypen und sichere Recovery nutzen; keine zusaetzlichen Befehle erfinden.
 7. Polling-Worker fuer Hardwarezustand erstellen, der `card_inserted` via Qt-Signal emittiert und kontrolliert beendet werden kann. Serielle Befehle serialisieren.

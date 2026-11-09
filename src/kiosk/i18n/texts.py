@@ -22,6 +22,13 @@ TEXTS: dict[str, dict[str, str]] = {
         "main.admin.unavailable": "Administration nicht konfiguriert.",
         "main.status.issued": "Karte ausgegeben.",
         "main.status.topped_up": "Konto aufgeladen.",
+        "main.status.empty": (
+            "Derzeit sind keine Karten verfügbar. Bitte Personal rufen."
+        ),
+        "main.status.aborted": "Vorgang abgebrochen. Es wurde nichts gebucht.",
+        "main.status.unknown_account": (
+            "Für diesen Ausweis gibt es kein Konto. Bitte Personal fragen."
+        ),
         "admin.login.prompt": "Admin-Karte auflegen und PIN eingeben",
         "admin.login.pin_label": "PIN",
         "admin.login.submit": "Anmelden",
@@ -83,6 +90,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "main.admin.unavailable": "Administration not configured.",
         "main.status.issued": "Card issued.",
         "main.status.topped_up": "Account topped up.",
+        "main.status.empty": "No cards are currently available. Please call staff.",
+        "main.status.aborted": "Cancelled. Nothing was booked.",
+        "main.status.unknown_account": (
+            "There is no account for this ID. Please ask the staff."
+        ),
         "admin.login.prompt": "Place admin card and enter PIN",
         "admin.login.pin_label": "PIN",
         "admin.login.submit": "Log in",

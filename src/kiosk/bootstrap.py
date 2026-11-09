@@ -30,6 +30,7 @@ from kiosk.hardware.serial_port import LazySerialPort, open_pyserial
 from kiosk.services.admin_auth import AdminAuthService, AdminCredentials
 from kiosk.services.admin_payout import AdminPayoutService
 from kiosk.services.admin_session import AdminSessionGuard
+from kiosk.services.customer_flows import CustomerFlows
 from kiosk.services.faults import FaultService
 from kiosk.services.issue_card import IssueCardService
 from kiosk.services.topup import TopUpService
@@ -55,6 +56,7 @@ class KioskApp:
             configuration is incomplete. Admin stays locked in that case.
         admin_payout: Admin cash payout for the last card.
         admin_session: Idle-timeout tracking for admin sessions.
+        customer: Customer actions (new card, top-up) for the main window.
     """
 
     config: KioskConfig
@@ -67,6 +69,7 @@ class KioskApp:
     admin_auth: AdminAuthService | None
     admin_payout: AdminPayoutService
     admin_session: AdminSessionGuard
+    customer: CustomerFlows
 
 
 def read_salt(environ: dict[str, str] | None = None) -> bytes:
@@ -168,6 +171,12 @@ def build_app(
         admin_auth = AdminAuthService(credentials, hasher, uow, clock_impl)
     admin_payout = AdminPayoutService(uow, clock_impl, deposit=deposit)
     top_up = TopUpService(uow, clock_impl, topup=topup)
+    customer = CustomerFlows(
+        reader=id_reader,
+        issue=issue,
+        topup=top_up,
+        hasher=hasher,
+    )
 
     return KioskApp(
         config=config,
@@ -180,6 +189,7 @@ def build_app(
         admin_auth=admin_auth,
         admin_payout=admin_payout,
         admin_session=admin_session,
+        customer=customer,
     )
 
 

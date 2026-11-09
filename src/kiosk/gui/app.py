@@ -17,20 +17,6 @@ logger = logging.getLogger("kiosk.gui.app")
 MAIN_QML = Path(__file__).resolve().parent / "qml" / "Main.qml"
 
 
-class _NoCustomerFlows:
-    """Placeholder until the customer flows are wired to the hardware.
-
-    Actions report a neutral result instead of touching a device. This keeps
-    the window usable without hardware and never books anything.
-    """
-
-    def start_issue(self) -> str:
-        return "aborted"
-
-    def start_topup(self) -> str:
-        return "aborted"
-
-
 def build_window(app: KioskApp) -> tuple[object, ...]:
     """Create the Qt engine, bridge and root window for the given kiosk app.
 
@@ -44,7 +30,7 @@ def build_window(app: KioskApp) -> tuple[object, ...]:
     from kiosk.gui.main_window import MainWindowBridge
 
     admin = app.admin_auth
-    bridge = MainWindowBridge(_NoCustomerFlows(), admin)
+    bridge = MainWindowBridge(app.customer, admin)
     engine = QQmlApplicationEngine()
     component = QQmlComponent(engine, QUrl.fromLocalFile(str(MAIN_QML)))
     if component.status() == QQmlComponent.Status.Error:

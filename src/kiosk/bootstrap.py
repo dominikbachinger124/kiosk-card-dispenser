@@ -32,6 +32,8 @@ from kiosk.services.admin_payout import AdminPayoutService
 from kiosk.services.admin_session import AdminSessionGuard
 from kiosk.services.customer_flows import CustomerFlows
 from kiosk.services.faults import FaultService
+from kiosk.services.forgotten_card import ForgottenCardService
+from kiosk.services.forgotten_watch import ForgottenWatch
 from kiosk.services.issue_card import IssueCardService
 from kiosk.services.topup import TopUpService
 from kiosk.storage.database import connect, migrate
@@ -57,6 +59,7 @@ class KioskApp:
         admin_payout: Admin cash payout for the last card.
         admin_session: Idle-timeout tracking for admin sessions.
         customer: Customer actions (new card, top-up) for the main window.
+        watch: Background watch for cards left at the exit after an issue.
     """
 
     config: KioskConfig
@@ -70,6 +73,7 @@ class KioskApp:
     admin_payout: AdminPayoutService
     admin_session: AdminSessionGuard
     customer: CustomerFlows
+    watch: ForgottenWatch
 
 
 def read_salt(environ: dict[str, str] | None = None) -> bytes:
@@ -171,11 +175,24 @@ def build_app(
         admin_auth = AdminAuthService(credentials, hasher, uow, clock_impl)
     admin_payout = AdminPayoutService(uow, clock_impl, deposit=deposit)
     top_up = TopUpService(uow, clock_impl, topup=topup)
+    # The watch uses the coordinated dispenser, so its movement is serialized
+    # with polling and the customer flows.
+    forgotten = ForgottenCardService(
+        dispenser,
+        uow,
+        hasher,
+        clock_impl,
+        deposit=deposit,
+        sleep=time.sleep,
+    )
+    watch = ForgottenWatch(forgotten)
     customer = CustomerFlows(
         reader=id_reader,
         issue=issue,
         topup=top_up,
         hasher=hasher,
+        watch=watch,
+        db=uow,
     )
 
     return KioskApp(
@@ -190,6 +207,7 @@ def build_app(
         admin_payout=admin_payout,
         admin_session=admin_session,
         customer=customer,
+        watch=watch,
     )
 
 

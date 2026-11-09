@@ -37,10 +37,22 @@ class FixedClock:
         return NOW
 
 
+class _WatchSpy:
+    """Records the cards handed to the forgotten-card watch."""
+
+    def __init__(self) -> None:
+        self.started: list[int] = []
+
+    def start(self, card: object) -> bool:
+        self.started.append(card.id)  # type: ignore[attr-defined]
+        return True
+
+
 def _flows(
     db: UnitOfWorkFactory,
     reader: FakeIdReader,
     dispenser: FakeDispenser,
+    watch: _WatchSpy | None = None,
 ) -> CustomerFlows:
     faults = FaultService(db, FixedClock(), AdminSessionGuard(FixedClock()))
     issue = IssueCardService(
@@ -59,6 +71,8 @@ def _flows(
         issue=issue,
         topup=topup,
         hasher=HASHER,
+        watch=watch,
+        db=db,
     )
 
 
@@ -90,6 +104,34 @@ def test_issue_reads_customer_id_then_books_card(
     assert result == "issued"
     assert _card_count(db_path) == 1
     assert _ledger_count(db_path) == 2  # topup + deposit
+
+
+def test_issued_card_is_handed_to_forgotten_watch(
+    uow_factory: UnitOfWorkFactory, db_path: Path
+) -> None:
+    watch = _WatchSpy()
+    flows = _flows(
+        uow_factory,
+        FakeIdReader(responses=[CUSTOMER_UID]),
+        FakeDispenser(),
+        watch,
+    )
+
+    assert flows.start_issue() == "issued"
+    assert len(watch.started) == 1
+
+
+def test_aborted_issue_starts_no_watch(uow_factory: UnitOfWorkFactory) -> None:
+    watch = _WatchSpy()
+    flows = _flows(
+        uow_factory,
+        FakeIdReader(responses=[HardwareTimeoutError("no card")]),
+        FakeDispenser(),
+        watch,
+    )
+
+    assert flows.start_issue() == "aborted"
+    assert watch.started == []
 
 
 def test_issue_without_customer_card_books_nothing(

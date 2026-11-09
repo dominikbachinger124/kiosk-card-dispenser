@@ -14,10 +14,12 @@ from __future__ import annotations
 import logging
 from typing import Protocol
 
+from kiosk.domain.entities import Card
 from kiosk.domain.errors import KioskError, NotFoundError
 from kiosk.domain.identity import CardIdHasher
 from kiosk.services.issue_card import IssueOutcome, IssueResult
 from kiosk.services.topup import TopUpResult
+from kiosk.storage.unit_of_work import UnitOfWorkFactory
 
 logger = logging.getLogger("kiosk.services.customer_flows")
 
@@ -40,6 +42,10 @@ class _TopUp(Protocol):
     def top_up(self, *, customer_uid_hash: str) -> TopUpResult: ...
 
 
+class _Watch(Protocol):
+    def start(self, card: Card) -> bool: ...
+
+
 class CustomerFlows:
     """Entry points for the customer actions shown on the main window.
 
@@ -48,6 +54,8 @@ class CustomerFlows:
         issue: Issue service for new cards.
         topup: Top-up service for existing accounts.
         hasher: Salted hasher for the customer identifier.
+        watch: Starts the forgotten-card watch for an issued card. Optional.
+        db: Reads the issued card for the watch. Required with ``watch``.
     """
 
     def __init__(
@@ -57,11 +65,15 @@ class CustomerFlows:
         issue: _Issue,
         topup: _TopUp,
         hasher: CardIdHasher,
+        watch: _Watch | None = None,
+        db: UnitOfWorkFactory | None = None,
     ) -> None:
         self._reader = reader
         self._issue = issue
         self._topup = topup
         self._hasher = hasher
+        self._watch = watch
+        self._db = db
 
     def start_issue(self) -> str:
         """Read the customer ID, then issue one card. Returns a result key."""
@@ -76,7 +88,17 @@ class CustomerFlows:
                 extra={"flow": "issue_card", "error_code": exc.code},
             )
             return RESULT_ABORTED
+        if result.outcome is IssueOutcome.ISSUED and result.card_id is not None:
+            self._start_watch(result.card_id)
         return _issue_key(result.outcome)
+
+    def _start_watch(self, card_id: int) -> None:
+        """Hand the issued card to the watch. Never blocks the flow."""
+        if self._watch is None or self._db is None:
+            return
+        with self._db.begin() as uow:
+            card = uow.cards.get(card_id)
+        self._watch.start(card)
 
     def start_topup(self) -> str:
         """Read the customer ID, then top up the existing account."""

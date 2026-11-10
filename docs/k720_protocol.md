@@ -131,10 +131,10 @@ Hinweise zur Matrix:
 ## 9. Ablauf Ausgabe (Empfehlung)
 
 1. `AP` lesen. Blockierende Bits (`0x0200`, `0x0100`, `0x0020`, `0x0008`) und Stau-Sensormuster (S+L, U+L+S) prüfen, bei Treffer Fehler werfen, kein Befehl. Bei Overlap (`0x0040`) 1 s nachprüfen (siehe 10.1).
-2. `FC4` aus dem Stapel senden (ACK, ENQ). Die Karte kommt an den Ausgang.
-3. `AP` im Abstand von mindestens 200 ms lesen, bis stabil. Ergebnis Sensor User (`0x0001`) ist das Ziel.
-4. `FC7`: Karte auf die Leseposition bringen (Ergebnis `0x0003`), dann `0x3B 0x30` (Suche) und `0x3B 0x31` (UID). Nur bei `P;0` bzw. `P;1` und vollständigen 4 UID-Bytes gilt die Karte als gelesen.
-5. `FC4`: Karte zurück an den Ausgang bringen. Ergebnis Sensor User (`0x0001`).
+2. `FC7` aus dem Stapel senden (ACK, ENQ). Die Karte kommt in die Leseposition (Matrix: S -> L+U).
+3. `AP` im Abstand von mindestens 200 ms lesen, bis stabil (Sensor Lesen und Sensor User belegt).
+4. `0x3B 0x30` (Suche) und `0x3B 0x31` (UID). Nur bei `P;0` bzw. `P;1` und vollständigen 4 UID-Bytes gilt die Karte als gelesen.
+5. `FC4` aus L+U senden: Karte zurück an den Ausgang. Ergebnis Sensor User (`0x0001`).
 6. Karte persistieren, erst nach erfolgreichem Lesen.
 7. Nach 30 s prüfen, ob Sensor User noch belegt ist (liegengelassen): dann `FC7`, UID, `CP` (Ablage). Ist die Karte entnommen, wechselt der Zustand auf Stapel (`0x0014`), das ist der Normalfall.
 8. Hinweis "Achtung! Karte wird eingezogen!" vor dem Einzug anzeigen. Der Kunde kann die Karte bis dahin entnehmen.

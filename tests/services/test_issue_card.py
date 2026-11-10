@@ -123,13 +123,27 @@ def test_jam_during_handout_aborts_without_booking(
     assert _count(db_path, "cards") == 0
 
 
+def test_issue_sequence_is_fc7_then_uid_then_fc4(
+    dispenser: FakeDispenser,
+    service: IssueCardService,
+) -> None:
+    """FC7 from the stack, UID at the read position, FC4 back to the exit."""
+    service.issue(customer_uid_hash=CUSTOMER_HASH)
+
+    assert dispenser.calls[:3] == [
+        "move_card_to_read_position",
+        "read_uid",
+        "move_card_to_user_exit",
+    ]
+    assert "issue_card" not in dispenser.calls
+
+
 def test_unreadable_card_after_handout_aborts_without_booking(
     dispenser: FakeDispenser,
     service: IssueCardService,
     db_path: Path,
 ) -> None:
-    """Card left the exit, but the UID cannot be read: no booking at all."""
-    # The first call (issue_card) succeeds; the read position move fails.
+    """Card reached the read position, but the UID cannot be read: no booking."""
     dispenser.failures.append(HardwareTimeoutError("no card at read position"))
 
     result = service.issue(customer_uid_hash=CUSTOMER_HASH)

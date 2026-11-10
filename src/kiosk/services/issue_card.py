@@ -139,10 +139,9 @@ class IssueCardService:
             uow.commit()
 
         try:
-            # FC4 from the stack presents the card at the user exit. FC7 moves
-            # it to the read position for the UID; FC4 brings it back to the
-            # exit so the user can take it. The booking comes only after a UID.
-            self._dispenser.issue_card()
+            # FC7 from the stack brings the card to the read position; the UID
+            # is read there; FC4 then brings the card to the user exit. The
+            # booking comes only after the UID.
             self._dispenser.move_card_to_read_position()
             new_uid_hash = self._hasher.hash_uid(self._dispenser.read_uid())
             self._dispenser.move_card_to_user_exit()

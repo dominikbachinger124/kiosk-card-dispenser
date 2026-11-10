@@ -60,10 +60,14 @@ class FakeDispenser:
         self._state.user_exit_occupied = True
 
     def move_card_to_read_position(self) -> None:
+        """FC7: from the stack (new card) or from the user exit, to read position."""
         self._check("move_card_to_read_position")
-        if not self._state.user_exit_occupied:
-            raise HardwareTimeoutError("no card at user exit")
-        self._state.user_exit_occupied = False
+        if self._state.user_exit_occupied:
+            self._state.user_exit_occupied = False
+        elif self.stock > 0:
+            self.stock -= 1
+        else:
+            raise DispenserEmptyError("stock empty")
         self._state.read_position_occupied = True
 
     def move_card_to_user_exit(self) -> None:

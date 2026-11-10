@@ -121,6 +121,9 @@ Befehlsmatrix (gemessen, Zustand nach Befehl):
 Hinweise zur Matrix:
 - "Justage": kurze Vor- und Rückbewegung, Endzustand unverändert.
 - Zustand U+S (`0x0005`) ist beobachtet worden, siehe 10.1 (dort mit Vorrat-Warnung als `0x0015`).
+- Vorrat-Bit (`0x0010`) ist in den Zustandsbezeichnungen nicht enthalten. Gemessen wurden zusätzlich `0x0013` (L+U + Vorrat, Stapel frei) und `0x0016` (L+S + Vorrat). Die Zellen der Matrix gelten unabhängig vom Vorrat-Bit.
+- Aus `0x0014` (S + Vorrat): `FC6` -> `0x0016` (L+S + Vorrat), zweimal gemessen. Entspricht der Zelle `-> L+S`.
+- Aus `0x0016` (L+S): `FC7` -> `0x0013` (L+U), `CP` -> `0x0014` (S, nur über Rohpfad, Stau-Sperre umgangen). UID-Lesen aus `0x0016` schlägt fehl (Timeout), entspricht "nicht lesbar".
 
 ## 8. Auswurf (FC0): absolut verboten
 
@@ -136,7 +139,7 @@ Hinweise zur Matrix:
 4. `0x3B 0x30` (Suche) und `0x3B 0x31` (UID). Nur bei `P;0` bzw. `P;1` und vollständigen 4 UID-Bytes gilt die Karte als gelesen.
 5. `FC4` aus L+U senden: Karte zurück an den Ausgang. Ergebnis Sensor User (`0x0001`).
 6. Karte persistieren, erst nach erfolgreichem Lesen.
-7. Nach 30 s prüfen, ob Sensor User noch belegt ist (liegengelassen): dann `FC7`, UID, `CP` (Ablage). Ist die Karte entnommen, wechselt der Zustand auf Stapel (`0x0014`), das ist der Normalfall.
+7. Nach 45 s prüfen, ob Sensor User noch belegt ist (liegengelassen): dann `FC7`, UID, `CP` (Ablage). Ist die Karte entnommen, wechselt der Zustand auf Stapel (`0x0014`), das ist der Normalfall.
 8. Hinweis "Achtung! Karte wird eingezogen!" vor dem Einzug anzeigen. Der Kunde kann die Karte bis dahin entnehmen.
 
 Dieser Ablauf ist die Empfehlung. Schritt 5 (`FC7` aus Ausgang) ist gemessen (Zustand U -> L+U), Schritt 4 (Entnahme) ist eine Nutzeraktion.

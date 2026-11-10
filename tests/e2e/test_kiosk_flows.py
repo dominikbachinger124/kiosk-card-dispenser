@@ -14,8 +14,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from tests.conftest import VALID_CONFIG_TOML
-from tests.hardware.fakes import FakeDispenser, FakeIdReader
 
 from kiosk.bootstrap import SALT_ENV, build_app
 from kiosk.domain.errors import HardwareTimeoutError
@@ -23,6 +21,8 @@ from kiosk.domain.identity import CardIdHasher
 from kiosk.domain.money import Money
 from kiosk.services.forgotten_card import ForgottenCardOutcome, ForgottenCardService
 from kiosk.storage.database import connect
+from tests.conftest import VALID_CONFIG_TOML
+from tests.hardware.fakes import FakeDispenser, FakeIdReader
 
 CUSTOMER_UID = "AABBCCDD"
 E2E_SALT = "x" * 32

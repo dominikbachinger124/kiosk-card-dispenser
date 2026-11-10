@@ -141,6 +141,7 @@ Hinweise zur Matrix:
 6. Karte persistieren, erst nach erfolgreichem Lesen.
 7. Nach 45 s prüfen, ob Sensor User noch belegt ist (liegengelassen): dann `FC7`, UID, `CP` (Ablage). Ist die Karte entnommen, wechselt der Zustand auf Stapel (`0x0014`), das ist der Normalfall.
 8. Hinweis "Achtung! Karte wird eingezogen!" vor dem Einzug anzeigen. Der Kunde kann die Karte bis dahin entnehmen.
+9. Tastendruck des Kunden während der Wartezeit: Der Watch bricht ab und führt sofort Schritt 7 aus (UID-Prüfung, `FC7`, `CP`), ohne auf das Ende der 45 s zu warten. Gemessen im Live-Test: Der Abbruch wirkte unmittelbar, die Prüfung läuft im Sekundentakt (`check_interval_s` = 1,0 s).
 
 Dieser Ablauf ist die Empfehlung. Schritt 5 (`FC7` aus Ausgang) ist gemessen (Zustand U -> L+U), Schritt 4 (Entnahme) ist eine Nutzeraktion.
 

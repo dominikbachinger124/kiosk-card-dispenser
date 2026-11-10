@@ -12,6 +12,9 @@ PIN ausschliesslich als adaptiver Hash speichern, vorzugsweise `hashlib.scrypt` 
 ## Ledger und Audit
 Ledger append-only: keine Buchungen aendern oder loeschen; Korrektur durch Gegenbuchung und dokumentierten Grund. Admin-Audit fuer PIN-Erfolg/-Fehler, Kontosuche im noetigen Umfang, Auszahlung, Kontoschliessung und Kartenstornierung. Keine Geheimnisse oder Rohkennungen im Audit. DB-/Log-Berechtigungen minimieren, Backups schuetzen und Restore testen.
 
+## Abbruch der Ausgabe-Wartezeit
+Ein Tastendruck während der Wartezeit zieht eine liegengelassene Karte sofort ein. Der Einzug erfolgt nur nach UID-Prüfung; eine fremde Karte am Ausgang wird nicht eingezogen, sondern als Stoerung gemeldet. Die Verbuchung erfolgt erst nach dem Einzug. Schlaegt die Buchung danach fehl, ist die Karte bereits eingezogen und der Fehler wird nur geloggt (`DB_BOOKING_FAILED`), nicht als Stoerung gemeldet. Das ist eine offene Luecke.
+
 ## Netzwerk und Betrieb
 Kein Netzwerkzugriff fuer MVP-Funktionen, keine Cloud-Synchronisierung und keine Online-Zahlung. Host regelmaessig aktualisieren, Kiosk-User mit minimalen Rechten, seriellen Zugriff gezielt ueber Gruppe `dialout` und stabile Device-Pfade. Secrets aus Umgebung/lokaler ignorierter Config bereitstellen. SQLite-Datei, WAL/SHM, Logs und Sicherungen vor anderen lokalen Benutzern schuetzen. Keine Fake-Hardware im Betriebsmodus; Fehler muessen sichtbar und fail-closed behandelt werden.
 

@@ -40,6 +40,11 @@ App im Vollbild starten; Aufloesung, Touch-Kalibrierung, Skalierung und Orientie
 ## Konfiguration und Benutzer
 Dedizierten, nicht privilegierten Kiosk-User anlegen. Nur benoetigte Rechte vergeben, `dialout` fuer serielle Hardware. `config.toml` mit Betriebsmodus `real`, stabilen Device-Pfaden und Werten aus Beispiel ausfuellen; Salt und Admin-PIN-Hash sicher lokal bereitstellen, `config.local.toml` nie committen. Vor Betrieb echte Hardware, Ausgabe, Rueckgabe, Recycling, Portverlust und Notfallablauf testen.
 
+## Ausgabe-Watch und Log
+Nach einer Ausgabe wartet der Kiosk bis zu 45 Sekunden, ob der Kunde die Karte entnimmt (`wait_s`, Standard 45). Die Prüfung läuft jede Sekunde (`check_interval_s`). Tastendruck während dieser Wartezeit bricht den Watch ab; die Karte wird dann über die UID-Prüfung eingezogen und verbucht. Details: `docs/k720_protocol.md`, Abschnitt 9.
+
+Das Log schreibt standardmäßig nach `~/.local/state/kiosk/logs/kiosk.log` (JSON-Zeilen, Verzeichnis 0700, Datei 0600). Für einen Test mit eigenem Verzeichnis: `uv run python -m kiosk --log-dir <pfad>`.
+
 ## systemd User Service (Vorlage)
 Datei `~/.config/systemd/user/kiosk-card-dispenser.service` lokal anlegen und Pfade/User anpassen:
 

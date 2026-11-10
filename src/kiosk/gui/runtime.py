@@ -58,6 +58,9 @@ class PollingRuntime:
         self._worker.card_inserted.connect(
             bridge.onCardInserted, Qt.ConnectionType.QueuedConnection
         )
+        self._worker.card_removed.connect(
+            bridge.onCardRemoved, Qt.ConnectionType.QueuedConnection
+        )
         self._worker.poll_failed.connect(
             bridge.onPollFailed, Qt.ConnectionType.QueuedConnection
         )

@@ -178,3 +178,51 @@ def test_issue_shows_present_id_prompt_before_reading(qt_app: object) -> None:
 
     assert customer.status_at_call == "Bitte Ausweis auflegen."
     assert bridge.status == "Karte ausgegeben."  # type: ignore[attr-defined]
+
+
+def test_card_removed_signal_shows_thanks_status(qt_app: object) -> None:
+    keep = _create(_FakeCustomer(), None)
+    bridge = keep[1]
+
+    bridge.onCardRemoved()
+
+    assert bridge.status == "Karte entnommen. Danke."  # type: ignore[attr-defined]
+
+
+class _BlockingCustomer:
+    """Customer whose issue flow blocks until the test releases it."""
+
+    def __init__(self) -> None:
+        import threading
+
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def start_issue(self) -> str:
+        self.entered.set()
+        self.release.wait(5)
+        return "issued"
+
+    def start_topup(self) -> str:
+        return "topped_up"
+
+
+def test_present_id_hint_is_visible_while_flow_blocks(qt_app: object) -> None:
+    """The prompt must be on screen while the reader waits, not after the flow."""
+    customer = _BlockingCustomer()
+    keep = _create(customer, None)
+    bridge = keep[1]
+
+    bridge.startIssue()
+    _process_events()
+    assert customer.entered.wait(2)
+
+    # The flow is still blocked here: the prompt is what the customer sees.
+    assert bridge.status == "Bitte Ausweis auflegen."  # type: ignore[attr-defined]
+
+    customer.release.set()
+    for _ in range(50):
+        _process_events()
+        if bridge.status == "Karte ausgegeben.":  # type: ignore[attr-defined]
+            break
+    assert bridge.status == "Karte ausgegeben."  # type: ignore[attr-defined]

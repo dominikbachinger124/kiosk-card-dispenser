@@ -238,3 +238,21 @@ def test_card_at_user_exit_emits_sensor_event_for_screensaver(
     worker.poll_once()
 
     assert "user_exit_occupied" in events
+
+
+def test_detector_reports_removal_on_falling_edge() -> None:
+    from kiosk.hardware.polling import CardRemovalDetector
+
+    detector = CardRemovalDetector()
+
+    readings = [False, True, True, False, False, True, False]
+
+    assert [detector.update(r) for r in readings] == [
+        False,
+        False,
+        False,
+        True,
+        False,
+        False,
+        True,
+    ]

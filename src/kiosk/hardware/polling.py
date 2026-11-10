@@ -43,6 +43,24 @@ class CardInsertionDetector:
         return rising
 
 
+class CardRemovalDetector:
+    """Detects that the card at the user exit has been taken.
+
+    A removal is a falling edge of the user-exit sensor: occupied on the
+    previous poll, free now. The customer takes the card, so this closes the
+    "card at the exit" status.
+    """
+
+    def __init__(self) -> None:
+        self._previously_occupied = False
+
+    def update(self, occupied: bool) -> bool:
+        """Feed one reading and return True exactly on the falling edge."""
+        falling = not occupied and self._previously_occupied
+        self._previously_occupied = occupied
+        return falling
+
+
 class PollingWorker(QObject):
     """Polls the dispenser in a background thread and emits card events.
 
@@ -55,6 +73,7 @@ class PollingWorker(QObject):
     """
 
     card_inserted = Signal()
+    card_removed = Signal()
     sensor_event = Signal(str)
     poll_failed = Signal(str)
 
@@ -71,6 +90,7 @@ class PollingWorker(QObject):
         self._sleep = sleep
         self._stop = threading.Event()
         self._detector = CardInsertionDetector()
+        self._remover = CardRemovalDetector()
         self._edges = SensorEdgeDetector()
 
     @Slot()
@@ -107,6 +127,9 @@ class PollingWorker(QObject):
         if inserted:
             logger.info("card_inserted", extra={"flow": "read"})
             self.card_inserted.emit()
+        if self._remover.update(state.user_exit_occupied):
+            logger.info("card_removed", extra={"flow": "read"})
+            self.card_removed.emit()
         return inserted
 
 
@@ -114,4 +137,9 @@ def _read_state(dispenser: CardDispenser) -> DispenserState:
     return dispenser.poll_state()
 
 
-__all__ = ["CardInsertionDetector", "PollingWorker", "POLL_INTERVAL_S"]
+__all__ = [
+    "CardInsertionDetector",
+    "CardRemovalDetector",
+    "PollingWorker",
+    "POLL_INTERVAL_S",
+]

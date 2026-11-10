@@ -129,3 +129,14 @@ def test_unknown_poll_error_code_falls_back_to_generic_text(qt_app: object) -> N
     status = bridge.status  # type: ignore[attr-defined]
     assert "error." not in status
     assert status == "Geraetefehler. Bitte Personal rufen."
+
+
+def test_root_is_a_visible_window(qt_app: object) -> None:
+    """The kiosk must show a window; a plain Item is loaded but never displayed."""
+    from PySide6.QtQuick import QQuickWindow
+
+    keep = _create(_FakeCustomer(), None)
+    root = keep[3]
+
+    assert isinstance(root, QQuickWindow)
+    assert root.property("visible") is True  # type: ignore[attr-defined]

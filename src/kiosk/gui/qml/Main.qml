@@ -1,21 +1,21 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 
 // Main kiosk window. Customer actions, status line, and admin availability.
 // All texts come from the Python i18n layer via kiosk.text(key).
 // No business rules here: the services decide, the bridge forwards.
-Item {
+// The root is a Window: a plain Item loads but is never shown on screen.
+Window {
     id: root
     required property var kiosk
 
-    implicitWidth: 1024
-    implicitHeight: 768
-
-    Rectangle {
-        anchors.fill: parent
-        color: "#111418"
-    }
+    width: 1024
+    height: 768
+    visible: true
+    title: root.kiosk.text("main.title")
+    color: "#111418"
 
     ColumnLayout {
         anchors.centerIn: parent

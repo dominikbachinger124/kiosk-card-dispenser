@@ -66,6 +66,13 @@ class FakeDispenser:
         self._state.user_exit_occupied = False
         self._state.read_position_occupied = True
 
+    def move_card_to_user_exit(self) -> None:
+        self._check("move_card_to_user_exit")
+        if not (self._state.read_position_occupied or self._state.stack_occupied):
+            raise HardwareTimeoutError("no card to move to user exit")
+        self._state.read_position_occupied = False
+        self._state.user_exit_occupied = True
+
     def read_uid(self) -> str:
         self._check("read_uid")
         if not self._state.read_position_occupied:

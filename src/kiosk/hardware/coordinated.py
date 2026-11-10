@@ -31,6 +31,9 @@ class CoordinatedDispenser:
     def move_card_to_read_position(self) -> None:
         self._coordinator.run(lambda d: d.move_card_to_read_position())
 
+    def move_card_to_user_exit(self) -> None:
+        self._coordinator.run(lambda d: d.move_card_to_user_exit())
+
     def read_uid(self) -> str:
         return self._coordinator.run(lambda d: d.read_uid())
 

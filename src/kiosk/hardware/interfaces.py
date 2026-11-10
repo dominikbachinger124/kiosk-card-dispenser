@@ -39,6 +39,14 @@ class CardDispenser(Protocol):
         """
         ...
 
+    def move_card_to_user_exit(self) -> None:
+        """Bring a card from the read position back to the user exit (``FC4``).
+
+        Raises:
+            HardwareError: If no card is at a position the device accepts.
+        """
+        ...
+
     def read_uid(self) -> str:
         """Read the UID of the card in the read position.
 

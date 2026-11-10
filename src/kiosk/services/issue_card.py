@@ -2,12 +2,14 @@
 
 Flow (domain.md "Neue Karte" / "Weitere Karte"):
 
-1. The dispenser hands out a card (``DC``). Empty stock or a stop condition
-   aborts the flow, with a fault record and a notice.
-2. The user takes the card. The card is moved to the read position and its
-   UID is read. The UID must be readable, otherwise the flow aborts.
+1. The dispenser presents a card from the stack at the user exit (``FC4``).
+   Empty stock or a stop condition aborts the flow, with a fault record.
+2. The card is moved to the read position (``FC7``) and its UID is read. Then
+   the card is brought back to the user exit (``FC4``). The UID must be
+   readable, otherwise the flow aborts.
 3. Only now are the account and card written and the 2000 cent balance and
-   500 cent Pfand booked, in one transaction.
+   500 cent Pfand booked, in one transaction. The user then takes the card;
+   the forgotten-card watch handles a card left at the exit.
 
 No booking ever exists for a card whose UID was not read. Every abort ends
 without a ledger entry and without a partial card row.
@@ -137,9 +139,13 @@ class IssueCardService:
             uow.commit()
 
         try:
+            # FC4 from the stack presents the card at the user exit. FC7 moves
+            # it to the read position for the UID; FC4 brings it back to the
+            # exit so the user can take it. The booking comes only after a UID.
             self._dispenser.issue_card()
             self._dispenser.move_card_to_read_position()
             new_uid_hash = self._hasher.hash_uid(self._dispenser.read_uid())
+            self._dispenser.move_card_to_user_exit()
         except DispenserEmptyError:
             fault = self._faults.report(
                 FaultCode.DISPENSER_EMPTY,

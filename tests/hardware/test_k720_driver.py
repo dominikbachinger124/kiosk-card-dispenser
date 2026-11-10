@@ -123,20 +123,20 @@ def test_status_polls_are_spaced_by_at_least_200_ms() -> None:
 # --- issuing ---------------------------------------------------------------
 
 
-def test_issue_sends_dc_and_waits_for_user_exit() -> None:
+def test_issue_sends_fc4_and_waits_for_user_exit() -> None:
     link = ScriptedLink()
     clock = FakeClock()
-    # Pre-check, then DC (handshake only), then two equal reads at the exit.
+    # Pre-check, then FC4 (handshake only), then two equal reads at the exit.
     link.queue(
         *handshake(status_frame(0)),  # pre-check: stock ok, nothing blocking
-        *handshake(),  # DC handshake, no answer frame
+        *handshake(),  # FC4 handshake, no answer frame
         *handshake(status_frame(BIT_SENSOR_USER)),
         *handshake(status_frame(BIT_SENSOR_USER)),
     )
 
     _driver(link, clock).issue_card()
 
-    assert b"DC" in _sent_commands(link)
+    assert b"FC4" in _sent_commands(link)
 
 
 def test_issue_with_empty_stock_raises_before_sending_dc() -> None:
@@ -146,7 +146,7 @@ def test_issue_with_empty_stock_raises_before_sending_dc() -> None:
     with pytest.raises(DispenserEmptyError):
         _driver(link, FakeClock()).issue_card()
 
-    assert b"DC" not in _sent_commands(link)
+    assert b"FC4" not in _sent_commands(link)
 
 
 def test_jammed_card_stops_the_flow_with_typed_error() -> None:
@@ -163,7 +163,7 @@ def test_jammed_card_stops_the_flow_with_typed_error() -> None:
     assert info.value.code == "CARD_JAMMED"
 
 
-def test_overlap_that_persists_raises_overlap_error_without_dc() -> None:
+def test_overlap_that_persists_raises_overlap_error_without_fc4() -> None:
     """Overlap still set after the settle window is an overlap fault (10.1)."""
     link = ScriptedLink()
     link.queue(
@@ -177,7 +177,7 @@ def test_overlap_that_persists_raises_overlap_error_without_dc() -> None:
     with pytest.raises(CardOverlapError):
         _driver(link, FakeClock()).issue_card()
 
-    assert b"DC" not in _sent_commands(link)
+    assert b"FC4" not in _sent_commands(link)
 
 
 def test_overlap_that_clears_to_normal_stack_state_continues() -> None:
@@ -186,14 +186,14 @@ def test_overlap_that_clears_to_normal_stack_state_continues() -> None:
     link.queue(
         *handshake(status_frame(BIT_CARD_OVERLAP | BIT_SENSOR_STACK)),  # pre-check
         *handshake(status_frame(BIT_SENSOR_STACK)),  # settle: overlap cleared
-        *handshake(),  # DC
+        *handshake(),  # FC4
         *handshake(status_frame(BIT_SENSOR_USER)),  # reached user exit
         *handshake(status_frame(BIT_SENSOR_USER)),  # stable (section 4)
     )
 
     _driver(link, FakeClock()).issue_card()
 
-    assert b"DC" in _sent_commands(link)
+    assert b"FC4" in _sent_commands(link)
 
 
 def test_overlap_that_turns_into_stack_and_read_jam_is_a_jam() -> None:
@@ -207,7 +207,7 @@ def test_overlap_that_turns_into_stack_and_read_jam_is_a_jam() -> None:
     with pytest.raises(CardJammedError):
         _driver(link, FakeClock()).issue_card()
 
-    assert b"DC" not in _sent_commands(link)
+    assert b"FC4" not in _sent_commands(link)
 
 
 def test_status_that_never_settles_times_out() -> None:
@@ -518,15 +518,15 @@ def test_all_three_sensors_together_is_a_jam() -> None:
     with pytest.raises(CardJammedError):
         _driver(link, FakeClock()).issue_card()
 
-    assert b"DC" not in _sent_commands(link)
+    assert b"FC4" not in _sent_commands(link)
 
 
 def test_stock_empty_while_issuing_raises_no_dc() -> None:
-    """Empty stock (0x0008) must stop before DC, even if other bits are clear."""
+    """Empty stock (0x0008) must stop before FC4, even if other bits are clear."""
     link = ScriptedLink()
     link.queue(*handshake(status_frame(BIT_STOCK_EMPTY | BIT_SENSOR_STACK)))
 
     with pytest.raises(DispenserEmptyError):
         _driver(link, FakeClock()).issue_card()
 
-    assert b"DC" not in _sent_commands(link)
+    assert b"FC4" not in _sent_commands(link)

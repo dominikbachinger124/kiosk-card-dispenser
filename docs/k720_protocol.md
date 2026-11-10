@@ -31,10 +31,10 @@ Für alle Befehle gleich:
 
 1. Host sendet den Befehlsrahmen.
 2. Gerät antwortet mit `ACK 0x06 ADDH ADDL` (angenommen) oder `NAK 0x15 ADDH ADDL` (Formatfehler).
-3. Host sendet `ENQ 0x05 ADDH ADDL`. **Pflicht.** Ohne ENQ führt das Gerät den Befehl nicht aus. Das wurde für `DC`, `FC*`, `CP` und `RS` gemessen.
+3. Host sendet `ENQ 0x05 ADDH ADDL`. **Pflicht.** Ohne ENQ führt das Gerät den Befehl nicht aus. Das wurde für `FC*`, `CP` und `RS` gemessen.
 4. Gerät antwortet nur bei Abfragen mit einem Antwortrahmen:
    - `AP`, `RF`, `GV`, `0x3B xx`: Antwortrahmen.
-   - Bewegungsbefehle (`DC`, `FC*`, `CP`, `RS`, `BE`, `BD`): keine Antwort nach ENQ. Das Ergebnis wird mit `AP` gelesen.
+   - Bewegungsbefehle (`FC*`, `CP`, `RS`, `BE`, `BD`): keine Antwort nach ENQ. Das Ergebnis wird mit `AP` gelesen.
 
 Antwortrahmen haben dieselbe Form wie Befehlsrahmen, die Nutzlast ist die Antwort. Beispiel `AP`: `02 30 30 00 06 S F 0 0 1 4 03 BCC`, also Nutzlast `"SF0014"`.
 
@@ -54,10 +54,9 @@ Antwortrahmen haben dieselbe Form wie Befehlsrahmen, die Nutzlast ist die Antwor
 | Firmware                       | `GV` (0x47 0x56)   | nein     | Antwort `PGV<Version>`, z. B. `PGVTTCE_K720_V104`                                           |
 | Karte suchen (S50)             | `0x3B 0x30`        | nein     | Erfolg `P;0` + Nutzlast (`04 00`), Fehler `N;...`                                           |
 | UID lesen (S50)                | `0x3B 0x31`        | nein     | Erfolg `P;1` + 4 UID-Bytes, Fehler `N;...`                                                  |
-| Karte von Stapel nach User     | `DC` (0x44 0x43)   | ja       | Sensor Stapel -> Sensor User (`0x0001`)                                                     |
 | Karte nach Leseposition        | `FC7` (0x46 0x43 0x37) | ja   | Ergebnis Sensor Lesen und Sensor User (`0x0003`). Abgelehnt aus L+U (`0x4013`).             |
 | Karte nach Lesen (von Stapel)  | `FC6` (0x46 0x43 0x36) | ja   | Nur aus Sensor Stapel allein (`0x0014` -> `0x0006`). Abgelehnt aus U, L, L+U, L+S.          |
-| Karte Lesen -> User            | `FC4` (0x46 0x43 0x34) | ja   | Aus L, L+U, S, L+S, U. Ergebnis `0x0001`.                                                    |
+| Karte Stapel/Lesen -> User     | `FC4` (0x46 0x43 0x34) | ja   | Aus S, L, L+U, L+S, U. Ergebnis `0x0001`. Ausgabe aus dem Stapel und Rueckfuehrung nach dem Lesen. |
 | Auswurf (VERBOTEN)             | `FC0` (0x46 0x43 0x30) | ja   | ABSOLUT VERBOTEN. Wirft die Karte aus dem Gerät aus. Nicht lesbar, nicht registriert. Siehe Abschnitt 8. |
 | Ablage (Entsorgung)            | `CP` (0x43 0x50)   | ja       | Nur aus Sensor Lesen oder Sensor User. Abgelehnt aus S allein (`0x4014`).                  |
 | Reset                          | `RS` (0x52 0x53)   | nein     | Reset, ein Piepton. Sensorbelegung bleibt unverändert, keine Karte wird entfernt.          |
@@ -112,7 +111,6 @@ Befehlsmatrix (gemessen, Zustand nach Befehl):
 
 | Befehl | U | L | S | L+U | L+S |
 |---|---|---|---|---|---|
-| DC  | Justage, bleibt U | -> U | -> U | -> U | -> U |
 | FC7 | -> L+U | -> L+U | -> L+U | abgelehnt (`0x4013`) | -> L+U |
 | FC6 | abgelehnt | abgelehnt | -> L+S | abgelehnt | abgelehnt |
 | FC4 | Justage, bleibt U | -> U | -> U | -> U | -> U |
@@ -122,7 +120,6 @@ Befehlsmatrix (gemessen, Zustand nach Befehl):
 
 Hinweise zur Matrix:
 - "Justage": kurze Vor- und Rückbewegung, Endzustand unverändert.
-- DC aus U und FC8 wurden gemessen; FC8 hatte keine Wirkung per Status (Einzelmessungen mit und ohne Nutzerbeobachtung).
 - Zustand U+S (`0x0005`) ist beobachtet worden, siehe 10.1 (dort mit Vorrat-Warnung als `0x0015`).
 
 ## 8. Auswurf (FC0): absolut verboten
@@ -134,12 +131,13 @@ Hinweise zur Matrix:
 ## 9. Ablauf Ausgabe (Empfehlung)
 
 1. `AP` lesen. Blockierende Bits (`0x0200`, `0x0100`, `0x0020`, `0x0008`) und Stau-Sensormuster (S+L, U+L+S) prüfen, bei Treffer Fehler werfen, kein Befehl. Bei Overlap (`0x0040`) 1 s nachprüfen (siehe 10.1).
-2. `DC` senden (ACK, ENQ).
+2. `FC4` aus dem Stapel senden (ACK, ENQ). Die Karte kommt an den Ausgang.
 3. `AP` im Abstand von mindestens 200 ms lesen, bis stabil. Ergebnis Sensor User (`0x0001`) ist das Ziel.
-4. Karte vom Nutzer entnehmen lassen (Sensor User wieder frei).
-5. Für das Lesen die Karte auf Leseposition bringen: `FC7` aus einem Zustand mit Karte am Ausgang (`0x0001`). Ergebnis `0x0003`.
-6. `0x3B 0x30` (Suche), dann `0x3B 0x31` (UID). Nur bei `P;0` bzw. `P;1` und vollständigen 4 UID-Bytes gilt die Karte als gelesen.
-7. Karte persistieren, erst nach erfolgreichem Lesen.
+4. `FC7`: Karte auf die Leseposition bringen (Ergebnis `0x0003`), dann `0x3B 0x30` (Suche) und `0x3B 0x31` (UID). Nur bei `P;0` bzw. `P;1` und vollständigen 4 UID-Bytes gilt die Karte als gelesen.
+5. `FC4`: Karte zurück an den Ausgang bringen. Ergebnis Sensor User (`0x0001`).
+6. Karte persistieren, erst nach erfolgreichem Lesen.
+7. Nach 30 s prüfen, ob Sensor User noch belegt ist (liegengelassen): dann `FC7`, UID, `CP` (Ablage). Ist die Karte entnommen, wechselt der Zustand auf Stapel (`0x0014`), das ist der Normalfall.
+8. Hinweis "Achtung! Karte wird eingezogen!" vor dem Einzug anzeigen. Der Kunde kann die Karte bis dahin entnehmen.
 
 Dieser Ablauf ist die Empfehlung. Schritt 5 (`FC7` aus Ausgang) ist gemessen (Zustand U -> L+U), Schritt 4 (Entnahme) ist eine Nutzeraktion.
 

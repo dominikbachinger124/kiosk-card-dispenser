@@ -1,7 +1,7 @@
 """K720 card dispenser driver over pyserial.
 
 Implements only the commands listed in ``docs/k720_protocol.md``:
-``AP``, ``DC``, ``FC7``, ``FC4``, ``CP``, ``RS`` and the card search
+``AP``, ``FC7``, ``FC4``, ``CP``, ``RS`` and the card search
 and UID commands ``0x3B 0x30`` / ``0x3B 0x31``.
 
 Deliberately NOT implemented: ``FC0`` (ejects a card that then jams the
@@ -61,9 +61,8 @@ MAX_UID_BYTES = 4
 
 # Commands as payload bytes, exactly as listed in the protocol document.
 CMD_STATUS_LONG = b"AP"
-CMD_MOVE_STACK_TO_USER = b"DC"
 CMD_MOVE_USER_TO_READ = b"FC7"
-CMD_MOVE_READ_TO_USER = b"FC4"
+CMD_MOVE_TO_USER_EXIT = b"FC4"
 CMD_DISPOSE = b"CP"
 CMD_SEARCH_CARD = b"\x3b\x30"
 CMD_READ_UID = b"\x3b\x31"
@@ -113,7 +112,10 @@ class K720Dispenser:
     # --- public interface -------------------------------------------------
 
     def issue_card(self) -> None:
-        """Move one card from the stack to the user exit (``DC``).
+        """Move one card from the stack to the user exit (``FC4``).
+
+        ``FC4`` is the only movement that brings a card out of the stack to the
+        user exit. ``DC`` is not used.
 
         Raises:
             DispenserEmptyError: If the stock is empty.
@@ -124,7 +126,7 @@ class K720Dispenser:
         status = self._check_before_command()
         if status.stock_empty:
             raise DispenserEmptyError("stock empty")
-        self._send_movement(CMD_MOVE_STACK_TO_USER)
+        self._send_movement(CMD_MOVE_TO_USER_EXIT)
         self._wait_for_status(
             lambda s: s.user_exit_occupied,
             failure_message="card did not reach user exit",
@@ -173,7 +175,7 @@ class K720Dispenser:
             or status.user_exit_occupied
         ):
             raise DispenserStateError("no card to move to user exit")
-        self._send_movement(CMD_MOVE_READ_TO_USER)
+        self._send_movement(CMD_MOVE_TO_USER_EXIT)
         # Sensor User goes high at once when the card arrives. Once it has been
         # seen, the card is at the exit; the user removing it afterwards is the
         # normal flow, so no second stable read is required here.
@@ -410,8 +412,7 @@ def _blocking_error(status: DeviceStatus) -> HardwareError:
 __all__ = [
     "ACK",
     "CMD_DISPOSE",
-    "CMD_MOVE_READ_TO_USER",
-    "CMD_MOVE_STACK_TO_USER",
+    "CMD_MOVE_TO_USER_EXIT",
     "CMD_MOVE_USER_TO_READ",
     "CMD_READ_UID",
     "CMD_SEARCH_CARD",

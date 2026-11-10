@@ -8,6 +8,7 @@ fault instead of a startup crash that hides the rest of the kiosk.
 
 from __future__ import annotations
 
+import contextlib
 import threading
 from collections.abc import Callable
 from typing import Any, Protocol
@@ -46,10 +47,20 @@ class LazySerialPort:
         self._lock = threading.Lock()
 
     def write(self, data: bytes) -> int:
-        return self._current().write(data)
+        link = self._current()
+        try:
+            return link.write(data)
+        except OSError as exc:
+            self._drop(link)
+            raise PortLostError("serial port lost") from exc
 
     def read(self, size: int) -> bytes:
-        return self._current().read(size)
+        link = self._current()
+        try:
+            return link.read(size)
+        except OSError as exc:
+            self._drop(link)
+            raise PortLostError("serial port lost") from exc
 
     def reset_input_buffer(self) -> None:
         self._current().reset_input_buffer()
@@ -84,6 +95,18 @@ class LazySerialPort:
                 except OSError as exc:
                     raise PortLostError("serial port unavailable") from exc
             return self._link
+
+    def _drop(self, failed: _Link) -> None:
+        """Forget a link that failed, so the next access reopens the port.
+
+        A cable pulled during operation leaves a dead handle behind. Without this
+        reset every later access would fail on the same handle forever.
+        """
+        with self._lock:
+            if self._link is failed:
+                self._link = None
+        with contextlib.suppress(OSError):
+            failed.close()
 
 
 def open_pyserial(path: str) -> _Link:

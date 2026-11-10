@@ -120,3 +120,48 @@ def test_read_available_returns_only_buffered_bytes() -> None:
 
     assert port.read_available() == b"EM4100 0A1B2C3D4E"
     assert link.read_sizes == [len(b"EM4100 0A1B2C3D4E")]
+
+
+class _BrokenLink(FakeSerial):
+    """Link whose I/O fails once the cable has been pulled."""
+
+    def write(self, data: bytes) -> int:
+        raise OSError("device disconnected")
+
+    def read(self, size: int) -> bytes:
+        raise OSError("device disconnected")
+
+
+def test_io_error_closes_link_and_next_access_reopens() -> None:
+    links: list[FakeSerial] = [_BrokenLink(), FakeSerial()]
+    opened: list[int] = []
+
+    def _open(path: str) -> FakeSerial:
+        opened.append(1)
+        return links[len(opened) - 1]
+
+    port = LazySerialPort("/dev/serial/by-id/test", _open)
+
+    with pytest.raises(PortLostError):
+        port.write(b"x")
+    port.write(b"y")
+
+    assert len(opened) == 2
+    assert links[1].written == [b"y"]
+
+
+def test_read_error_also_triggers_reopen() -> None:
+    links: list[FakeSerial] = [_BrokenLink(), FakeSerial()]
+    opened: list[int] = []
+
+    def _open(path: str) -> FakeSerial:
+        opened.append(1)
+        return links[len(opened) - 1]
+
+    port = LazySerialPort("/dev/serial/by-id/test", _open)
+
+    with pytest.raises(PortLostError):
+        port.read(1)
+    port.read(1)
+
+    assert len(opened) == 2

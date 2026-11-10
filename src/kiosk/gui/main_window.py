@@ -8,9 +8,10 @@ the admin locked instead of showing a broken login.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 from kiosk.i18n.texts import translate
 
@@ -72,11 +73,20 @@ class MainWindowBridge(QObject):
 
     @Slot()
     def startIssue(self) -> None:
-        self._set_status(self._customer.start_issue())
+        self._start_flow(self._customer.start_issue)
 
     @Slot()
     def startTopup(self) -> None:
-        self._set_status(self._customer.start_topup())
+        self._start_flow(self._customer.start_topup)
+
+    def _start_flow(self, flow: Callable[[], str]) -> None:
+        """Show the ID prompt, then run the flow once the prompt is painted.
+
+        The flow blocks while the reader waits for a card. Deferring it by one
+        event-loop pass lets the window show the instruction first.
+        """
+        self._set_status("present_id")
+        QTimer.singleShot(0, lambda: self._set_status(flow()))
 
     def _set_status(self, key: str) -> None:
         self._status = translate(f"main.status.{key}", self._language)

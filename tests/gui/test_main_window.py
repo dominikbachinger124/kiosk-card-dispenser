@@ -40,6 +40,14 @@ def qt_app() -> object:
     return QGuiApplication.instance() or QGuiApplication([])
 
 
+def _process_events() -> None:
+    """Run pending events so the deferred flow start executes."""
+    from PySide6.QtCore import QCoreApplication
+
+    QCoreApplication.processEvents()
+    QCoreApplication.processEvents()
+
+
 def _create(customer: object, admin: object | None) -> tuple[object, ...]:
     """Build engine, bridge and root object. The caller must keep the tuple alive."""
     from PySide6.QtCore import QUrl
@@ -84,6 +92,7 @@ def test_issue_action_calls_customer_flow_and_sets_status(qt_app: object) -> Non
     bridge = keep[1]
 
     bridge.startIssue()
+    _process_events()
 
     assert customer.issue_calls == 1
     assert bridge.status == "Karte ausgegeben."  # type: ignore[attr-defined]
@@ -95,6 +104,7 @@ def test_topup_action_calls_customer_flow_and_sets_status(qt_app: object) -> Non
     bridge = keep[1]
 
     bridge.startTopup()
+    _process_events()
 
     assert customer.topup_calls == 1
     assert bridge.status == "Konto aufgeladen."  # type: ignore[attr-defined]
@@ -140,3 +150,31 @@ def test_root_is_a_visible_window(qt_app: object) -> None:
 
     assert isinstance(root, QQuickWindow)
     assert root.property("visible") is True  # type: ignore[attr-defined]
+
+
+class _RecordingCustomer(_FakeCustomer):
+    """Records the status text that is visible at the moment the flow starts."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.bridge: object | None = None
+        self.status_at_call: str | None = None
+
+    def start_issue(self) -> str:
+        assert self.bridge is not None
+        self.status_at_call = self.bridge.status  # type: ignore[attr-defined]
+        return super().start_issue()
+
+
+def test_issue_shows_present_id_prompt_before_reading(qt_app: object) -> None:
+    customer = _RecordingCustomer()
+    keep = _create(customer, None)
+    bridge = keep[1]
+    customer.bridge = bridge
+
+    bridge.startIssue()
+    # The read is deferred so the prompt can be painted first.
+    _process_events()
+
+    assert customer.status_at_call == "Bitte Ausweis auflegen."
+    assert bridge.status == "Karte ausgegeben."  # type: ignore[attr-defined]

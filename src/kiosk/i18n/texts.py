@@ -27,6 +27,7 @@ TEXTS: dict[str, dict[str, str]] = {
             "Derzeit sind keine Karten verfügbar. Bitte Personal rufen."
         ),
         "main.status.present_id": "Bitte Ausweis auflegen.",
+        "main.status.card_checked": "Karte wird geprüft ...",
         "main.status.aborted": "Vorgang abgebrochen. Es wurde nichts gebucht.",
         "main.status.unknown_account": (
             "Für diesen Ausweis gibt es kein Konto. Bitte Personal fragen."
@@ -95,6 +96,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "main.status.topped_up": "Account topped up.",
         "main.status.empty": "No cards are currently available. Please call staff.",
         "main.status.present_id": "Please present your ID.",
+        "main.status.card_checked": "Checking card ...",
         "main.status.aborted": "Cancelled. Nothing was booked.",
         "main.status.unknown_account": (
             "There is no account for this ID. Please ask the staff."

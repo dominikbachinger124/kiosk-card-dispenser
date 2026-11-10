@@ -3,7 +3,9 @@
 This watch runs only while a card-output movement (FC4 or another issue step)
 is active. It starts once the card has reached the user exit (Sensor U).
 
-After ``wait_s`` seconds, if the card is still at the exit:
+The exit is polled while waiting. If the card is taken earlier, the watch ends
+at once as taken by the user. After ``wait_s`` seconds, if the card is still
+at the exit:
 
 * the card is moved to the read position (FC7) and its UID is read,
 * the UID must match the expected card, otherwise nothing is disposed,
@@ -18,12 +20,15 @@ card row changes its status instead.
 from __future__ import annotations
 
 import logging
+import threading
 import uuid
 from collections.abc import Callable
 from enum import StrEnum
+from typing import Protocol
 
 from kiosk.domain.clock import Clock
 from kiosk.domain.entities import Card, CardStatus, Session
+from kiosk.domain.faults import FaultCode
 from kiosk.domain.identity import CardIdHasher
 from kiosk.domain.ledger import EntryType, LedgerEntry
 from kiosk.domain.money import Money
@@ -44,6 +49,17 @@ class ForgottenCardOutcome(StrEnum):
     NOT_RECYCLABLE = "not_recyclable"
 
 
+class _FaultReporter(Protocol):
+    def report(
+        self,
+        code: FaultCode,
+        session_id: str | None = None,
+        *,
+        account_id: int | None = None,
+        card_id: int | None = None,
+    ) -> object: ...
+
+
 class ForgottenCardService:
     """Alert and recycle a card that the user forgot at the exit.
 
@@ -55,6 +71,7 @@ class ForgottenCardService:
         deposit: Fund amount moved to the balance on recycling (500 Cent).
         sleep: Pause function, injected for tests.
         wait_s: Seconds the user has to take the card before recycling.
+        check_interval_s: Seconds between exit checks while waiting.
     """
 
     def __init__(
@@ -66,10 +83,14 @@ class ForgottenCardService:
         *,
         deposit: Money,
         sleep: Callable[[float], None],
-        wait_s: float = 30.0,
+        wait_s: float = 45.0,
+        check_interval_s: float = 1.0,
+        faults: _FaultReporter | None = None,
     ) -> None:
         if wait_s <= 0:
             raise ValueError("wait_s must be positive")
+        if check_interval_s <= 0:
+            raise ValueError("check_interval_s must be positive")
         self._dispenser = dispenser
         self._uow_factory = uow_factory
         self._hasher = hasher
@@ -77,24 +98,64 @@ class ForgottenCardService:
         self._deposit = deposit
         self._sleep = sleep
         self._wait_s = wait_s
+        self._faults = faults
+        self._check_interval_s = min(check_interval_s, wait_s)
 
-    def watch(self, card: Card) -> ForgottenCardOutcome:
+    def watch(
+        self, card: Card, cancel: threading.Event | None = None
+    ) -> ForgottenCardOutcome:
         """Wait for the user to take the card; recycle it if forgotten.
 
         Args:
             card: The card that was just issued and is expected at the exit.
+            cancel: Set by the GUI when the customer touches a button. The wait
+                ends at the next check, and the card is disposed of at once,
+                through the same UID check as a forgotten card.
 
         Returns:
             The outcome. Hardware errors propagate as ``HardwareError``.
         """
         session_id = uuid.uuid4().hex
-        self._sleep(self._wait_s)
-        if not self._at_exit():
-            return self._finish(session_id, ForgottenCardOutcome.TAKEN_BY_USER)
+        # Poll the exit while waiting. A card taken early ends the watch at once,
+        # so a different card placed at the exit later is never treated as forgotten.
+        waited = 0.0
+        while waited < self._wait_s:
+            self._sleep(self._check_interval_s)
+            waited += self._check_interval_s
+            if not self._at_exit():
+                return self._finish(session_id, ForgottenCardOutcome.TAKEN_BY_USER)
+            if cancel is not None and cancel.is_set():
+                # Interrupted by a touch: the card is still at the exit, so it is
+                # checked and disposed of now instead of after the full wait.
+                return self._recycle(session_id, card)
         return self._recycle(session_id, card)
 
     def _at_exit(self) -> bool:
         return self._dispenser.poll_state().user_exit_occupied
+
+    def clear_exit_before_issue(self, card: Card) -> ForgottenCardOutcome:
+        """Dispose of a card left at the exit before a new issue starts.
+
+        The card is recycled only if the UID at the read position matches the
+        watched card. Any other result is a fault: nothing is disposed of, and
+        an admin has to clear the situation.
+
+        Args:
+            card: The card the watch was started for.
+
+        Returns:
+            The outcome. ``WRONG_CARD`` means the card was not disposed of and
+            a ``CARD_UID_AMBIGUOUS`` fault was recorded if a fault service is set.
+        """
+        session_id = uuid.uuid4().hex
+        outcome = self._recycle(session_id, card)
+        if outcome is ForgottenCardOutcome.WRONG_CARD and self._faults is not None:
+            self._faults.report(
+                FaultCode.CARD_UID_AMBIGUOUS,
+                session_id=session_id,
+                card_id=card.id,
+            )
+        return outcome
 
     def _recycle(self, session_id: str, card: Card) -> ForgottenCardOutcome:
         # Move to the read position so the UID can be checked before disposal.

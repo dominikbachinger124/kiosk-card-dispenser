@@ -18,6 +18,7 @@ class FaultCode(StrEnum):
     CARD_OVERLAP = "CARD_OVERLAP"
     DISPENSER_EMPTY = "DISPENSER_EMPTY"
     DISPENSER_STATE = "DISPENSER_STATE"
+    CARD_UID_AMBIGUOUS = "CARD_UID_AMBIGUOUS"
 
 
 @dataclass(frozen=True, slots=True)

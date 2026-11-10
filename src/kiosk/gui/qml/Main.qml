@@ -33,7 +33,10 @@ Window {
             Layout.preferredWidth: 480
             Layout.preferredHeight: 96
             text: root.kiosk.text("main.action.issue")
-            onClicked: root.kiosk.startIssue()
+            onClicked: {
+                root.kiosk.interruptWatch()
+                root.kiosk.startIssue()
+            }
         }
 
         Button {
@@ -41,7 +44,10 @@ Window {
             Layout.preferredWidth: 480
             Layout.preferredHeight: 96
             text: root.kiosk.text("main.action.topup")
-            onClicked: root.kiosk.startTopup()
+            onClicked: {
+                root.kiosk.interruptWatch()
+                root.kiosk.startTopup()
+            }
         }
 
         Text {

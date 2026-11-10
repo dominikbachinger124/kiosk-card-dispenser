@@ -1,6 +1,6 @@
 """Forgotten-card watch runs in its own thread and can be stopped.
 
-The 30-second wait must never block the polling thread. These tests use a
+The 45-second wait must never block the polling thread. These tests use a
 real ForgottenCardService with a fake dispenser and an injected sleep, so no
 time is spent and no device is opened.
 """
@@ -28,7 +28,7 @@ class _Recorder:
         self.calls: list[object] = []
         self._block = block
 
-    def watch(self, card: object) -> str:
+    def watch(self, card: object, cancel: threading.Event | None = None) -> str:
         self.calls.append(card)
         if self._block is not None:
             self._block.wait(5)
@@ -45,7 +45,7 @@ def test_watch_runs_in_background_and_returns_immediately() -> None:
     elapsed = time.monotonic() - started
 
     try:
-        assert elapsed < 0.5, "start() must not wait for the 30-second timeout"
+        assert elapsed < 0.5, "start() must not wait for the 45-second timeout"
         assert watch.is_running()
     finally:
         release.set()

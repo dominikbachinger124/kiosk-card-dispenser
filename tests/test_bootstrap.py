@@ -83,6 +83,7 @@ def test_build_applies_migrations(
         "0001_initial.sql",
         "0002_device_fault.sql",
         "0003_device_fault_context.sql",
+        "0004_device_fault_uid_ambiguous.sql",
     ]
 
 

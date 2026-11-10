@@ -102,13 +102,16 @@ def test_topup_for_known_account_adds_2000_cent(
     config_path: Path, tmp_path: Path, salt: None
 ) -> None:
     db = tmp_path / "kiosk.db"
+    dispenser = FakeDispenser()
     app = _app(
         config_path,
         db,
-        FakeDispenser(),
+        dispenser,
         FakeIdReader(responses=[CUSTOMER_UID, CUSTOMER_UID]),
     )
     app.customer.start_issue()  # type: ignore[attr-defined]
+    # The customer takes the issued card from the exit before the next flow.
+    dispenser.exit_occupied = False
     before = sum(v for k, v in _balances(db).items() if k != "deposit_total")
 
     assert app.customer.start_topup() == "topped_up"  # type: ignore[attr-defined]
@@ -136,7 +139,9 @@ def test_issue_without_customer_read_dispenses_nothing(
     app = _app(config_path, db, dispenser, reader)
 
     assert app.customer.start_issue() == "aborted"  # type: ignore[attr-defined]
-    assert dispenser.calls == []
+    # Only the exit check runs before the read; no movement is commanded.
+    assert "issue_card" not in dispenser.calls
+    assert "move_card_to_read_position" not in dispenser.calls
     assert _count(db, "ledger") == 0
 
 
@@ -158,7 +163,7 @@ def test_recycled_forgotten_card_refunds_deposit_to_balance(
         card = uow.cards.get(card_id)
 
     # The card is still at the exit after the wait: the watch recycles it.
-    # The wait is skipped here; the real 30 s timer is covered elsewhere.
+    # The wait is skipped here; the real 45 s timer is covered elsewhere.
     dispenser.exit_occupied = True
     no_wait = ForgottenCardService(
         dispenser,

@@ -196,6 +196,7 @@ def build_app(
         clock_impl,
         deposit=deposit,
         sleep=time.sleep,
+        faults=faults,
     )
     watch = ForgottenWatch(forgotten)
     customer = CustomerFlows(
@@ -205,6 +206,7 @@ def build_app(
         hasher=hasher,
         watch=watch,
         db=uow,
+        exit_sensor=_ExitOccupancy(coordinated),
     )
 
     return KioskApp(
@@ -223,6 +225,21 @@ def build_app(
         forgotten_card=forgotten,
         uow=uow,
     )
+
+
+class _ExitOccupancy:
+    """Reads the user-exit sensor through the coordinated dispenser.
+
+    The ID reader is gated on this: while a card waits at the exit, the customer
+    flows do not read the Flipper. The read goes through the coordinator, so it
+    never interleaves with a movement.
+    """
+
+    def __init__(self, dispenser: CardDispenser) -> None:
+        self._dispenser = dispenser
+
+    def exit_occupied(self) -> bool:
+        return self._dispenser.poll_state().user_exit_occupied
 
 
 def _prepare_database_dir(directory: Path) -> None:

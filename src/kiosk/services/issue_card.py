@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -108,6 +109,7 @@ class IssueCardService:
         *,
         customer_uid_hash: str,
         existing_account_id: int | None = None,
+        on_card_checked: Callable[[], None] | None = None,
     ) -> IssueResult:
         """Run the issue flow for one new card.
 
@@ -120,6 +122,8 @@ class IssueCardService:
             customer_uid_hash: Salted hash of the identifier that started the flow.
             existing_account_id: Account for an additional card, or None to
                 find or create the account by ``customer_uid_hash``.
+            on_card_checked: Called once the dispensed card's UID was read and
+                before the card moves to the exit. Optional progress hint.
 
         Returns:
             The outcome. An abort never leaves a ledger entry or card row.
@@ -144,6 +148,8 @@ class IssueCardService:
             # booking comes only after the UID.
             self._dispenser.move_card_to_read_position()
             new_uid_hash = self._hasher.hash_uid(self._dispenser.read_uid())
+            if on_card_checked is not None:
+                on_card_checked()
             self._dispenser.move_card_to_user_exit()
         except DispenserEmptyError:
             fault = self._faults.report(

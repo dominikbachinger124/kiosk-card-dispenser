@@ -231,3 +231,88 @@ def test_empty_stock_reports_empty_and_books_nothing(
 
     assert flows.start_issue() == "empty"
     assert _ledger_count(db_path) == 0
+
+
+class _ExitSpy:
+    """Reports a fixed exit state and counts how often it was asked."""
+
+    def __init__(self, occupied: bool) -> None:
+        self.occupied = occupied
+        self.calls = 0
+
+    def exit_occupied(self) -> bool:
+        self.calls += 1
+        return self.occupied
+
+
+class _CountingReader(FakeIdReader):
+    """Counts reads so a test can prove the ID reader was not started."""
+
+    def __init__(self, responses: list[str | Exception]) -> None:
+        super().__init__(responses=responses)
+        self.reads = 0
+
+    def read_id(self) -> str:
+        self.reads += 1
+        return super().read_id()
+
+
+def _flows_with_exit(
+    db: UnitOfWorkFactory,
+    reader: FakeIdReader,
+    dispenser: FakeDispenser,
+    exit_sensor: _ExitSpy,
+) -> CustomerFlows:
+    faults = FaultService(db, FixedClock(), AdminSessionGuard(FixedClock()))
+    issue = IssueCardService(
+        dispenser,
+        db,
+        HASHER,
+        faults,
+        FixedClock(),
+        topup=TOPUP,
+        deposit=DEPOSIT,
+        collection=COLLECTION,
+    )
+    topup = TopUpService(db, FixedClock(), topup=TOPUP)
+    return CustomerFlows(
+        reader=reader,
+        issue=issue,
+        topup=topup,
+        hasher=HASHER,
+        exit_sensor=exit_sensor,
+    )
+
+
+def test_issue_is_refused_and_id_not_read_while_exit_occupied(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    reader = _CountingReader([CUSTOMER_UID])
+    dispenser = FakeDispenser()
+    flows = _flows_with_exit(uow_factory, reader, dispenser, _ExitSpy(occupied=True))
+
+    assert flows.start_issue() == "exit_occupied"
+    assert reader.reads == 0
+    assert "FC7" not in dispenser.calls
+
+
+def test_topup_is_refused_and_id_not_read_while_exit_occupied(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    reader = _CountingReader([CUSTOMER_UID])
+    flows = _flows_with_exit(
+        uow_factory, reader, FakeDispenser(), _ExitSpy(occupied=True)
+    )
+
+    assert flows.start_topup() == "exit_occupied"
+    assert reader.reads == 0
+
+
+def test_issue_reads_id_when_exit_is_free(uow_factory: UnitOfWorkFactory) -> None:
+    reader = _CountingReader([CUSTOMER_UID])
+    exit_sensor = _ExitSpy(occupied=False)
+    flows = _flows_with_exit(uow_factory, reader, FakeDispenser(), exit_sensor)
+
+    assert flows.start_issue() == "issued"
+    assert reader.reads == 1
+    assert exit_sensor.calls >= 1

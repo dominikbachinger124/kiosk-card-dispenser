@@ -1,6 +1,6 @@
 """Runs ForgottenCardService.watch in a background thread.
 
-``watch()`` waits up to 30 seconds for the user to take the card. Run on the
+``watch()`` waits up to 45 seconds for the user to take the card. Run on the
 polling thread, that wait would stop card detection. This wrapper starts it
 on a thread of its own, so the polling and the GUI keep running.
 
@@ -19,11 +19,11 @@ from kiosk.domain.errors import KioskError
 
 logger = logging.getLogger("kiosk.services.forgotten_watch")
 
-STOP_TIMEOUT_S = 35.0
+STOP_TIMEOUT_S = 50.0
 
 
 class _Watchable(Protocol):
-    def watch(self, card: Any) -> str: ...
+    def watch(self, card: Any, cancel: threading.Event | None = None) -> str: ...
 
 
 class ForgottenWatch:
@@ -43,6 +43,7 @@ class ForgottenWatch:
         self._service = service
         self._stop_timeout_s = stop_timeout_s
         self._thread: threading.Thread | None = None
+        self._cancel = threading.Event()
         self._lock = threading.Lock()
         self.last_outcome: str | None = None
 
@@ -55,6 +56,7 @@ class ForgottenWatch:
         with self._lock:
             if self._thread is not None and self._thread.is_alive():
                 return False
+            self._cancel = threading.Event()
             thread = threading.Thread(
                 target=self._run,
                 args=(card,),
@@ -64,6 +66,14 @@ class ForgottenWatch:
             self._thread = thread
             thread.start()
             return True
+
+    def cancel(self) -> None:
+        """Ask the running watch to dispose of its card now. Safe to call anytime.
+
+        The watch does not stop without the card: it runs the same UID check as
+        a forgotten card, then disposes of the card. Nothing happens if no watch runs.
+        """
+        self._cancel.set()
 
     def is_running(self) -> bool:
         """True while a watch thread is alive."""
@@ -85,7 +95,7 @@ class ForgottenWatch:
 
     def _run(self, card: Any) -> None:
         try:
-            self.last_outcome = self._service.watch(card)
+            self.last_outcome = self._service.watch(card, self._cancel)
         except KioskError as exc:
             # Typed errors are expected stop conditions. Record the code only.
             logger.error(

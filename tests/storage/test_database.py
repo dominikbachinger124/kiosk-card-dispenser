@@ -33,6 +33,7 @@ def test_migrations_apply_once_and_are_idempotent(tmp_path: Path) -> None:
         "0001_initial.sql",
         "0002_device_fault.sql",
         "0003_device_fault_context.sql",
+        "0004_device_fault_uid_ambiguous.sql",
     ]
     assert second == []
 
@@ -142,3 +143,24 @@ def test_migration_3_keeps_existing_faults_and_adds_context(tmp_path: Path) -> N
     assert row["fault_code"] == "CARD_JAMMED"
     assert row["account_id"] is None
     assert row["card_id"] is None
+
+
+def test_uid_ambiguous_fault_code_is_accepted_and_others_kept(
+    tmp_path: Path,
+) -> None:
+    conn = connect(tmp_path / "amb.db")
+    try:
+        migrate(conn, MIGRATIONS_DIR)
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute(
+            "INSERT INTO device_faults (fault_code, raised_at) "
+            "VALUES ('CARD_UID_AMBIGUOUS', '2026-11-10T12:00:00+00:00')"
+        )
+        conn.commit()
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                "INSERT INTO device_faults (fault_code, raised_at) "
+                "VALUES ('UNKNOWN_CODE', '2026-11-10T12:00:00+00:00')"
+            )
+    finally:
+        conn.close()

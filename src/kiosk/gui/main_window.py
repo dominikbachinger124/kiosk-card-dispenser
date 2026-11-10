@@ -30,6 +30,7 @@ class MainWindowBridge(QObject):
     adminAvailableChanged = Signal()
     statusChanged = Signal()
     _flowFinished = Signal(str)
+    _flowProgress = Signal(str)
 
     def __init__(
         self,
@@ -45,6 +46,7 @@ class MainWindowBridge(QObject):
         # Flows block on the reader, so they run in a worker thread. The result
         # comes back to the GUI thread through this signal only.
         self._flowFinished.connect(self._set_flow_result)
+        self._flowProgress.connect(self._set_flow_result)
 
     @Property(bool, notify=adminAvailableChanged)
     def adminAvailable(self) -> bool:
@@ -83,23 +85,35 @@ class MainWindowBridge(QObject):
         self.statusChanged.emit()
 
     @Slot()
+    def interruptWatch(self) -> None:
+        """Called on every button touch. Ends a running forgotten-card wait."""
+        self._customer.interrupt_watch()
+
+    @Slot()
     def startIssue(self) -> None:
-        self._start_flow(self._customer.start_issue)
+        self._start_flow(self._customer.start_issue, with_progress=True)
 
     @Slot()
     def startTopup(self) -> None:
         self._start_flow(self._customer.start_topup)
 
-    def _start_flow(self, flow: Callable[[], str]) -> None:
+    def _start_flow(
+        self, flow: Callable[..., str], *, with_progress: bool = False
+    ) -> None:
         """Show the ID prompt, then run the flow in a worker thread.
 
         The flow blocks while the reader waits for a card. Running it on the GUI
         thread would freeze the window, so the prompt would never be painted.
+        Progress keys come from the worker and reach the GUI only via signal.
         """
         self._set_status("present_id")
 
         def _run() -> None:
-            self._flowFinished.emit(flow())
+            if with_progress:
+                result = flow(on_progress=self._flowProgress.emit)
+            else:
+                result = flow()
+            self._flowFinished.emit(result)
 
         threading.Thread(target=_run, name="customer-flow", daemon=True).start()
 

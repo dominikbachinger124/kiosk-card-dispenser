@@ -185,3 +185,24 @@ def test_collection_must_equal_topup_plus_deposit(
             deposit=DEPOSIT,
             collection=Money(2000),
         )
+
+
+def test_card_checked_hook_fires_after_uid_read_before_exit(
+    service: IssueCardService, dispenser: FakeDispenser
+) -> None:
+    calls: list[str] = []
+    original_exit = dispenser.move_card_to_user_exit
+
+    def record_exit() -> None:
+        calls.append("exit")
+        original_exit()
+
+    dispenser.move_card_to_user_exit = record_exit  # type: ignore[method-assign]
+
+    result = service.issue(
+        customer_uid_hash=CUSTOMER_HASH,
+        on_card_checked=lambda: calls.append("checked"),
+    )
+
+    assert result.outcome is IssueOutcome.ISSUED
+    assert calls == ["checked", "exit"]

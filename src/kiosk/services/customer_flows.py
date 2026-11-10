@@ -6,12 +6,13 @@ and never stored, logged or returned. The result is a short key that the GUI
 translates; no exception text leaves this module.
 
 Result keys: ``issued``, ``empty``, ``aborted``, ``topped_up``,
-``unknown_account``.
+``unknown_account``, ``exit_occupied``.
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Protocol
 
 from kiosk.domain.entities import Card
@@ -28,6 +29,8 @@ RESULT_EMPTY = "empty"
 RESULT_ABORTED = "aborted"
 RESULT_TOPPED_UP = "topped_up"
 RESULT_UNKNOWN_ACCOUNT = "unknown_account"
+RESULT_EXIT_OCCUPIED = "exit_occupied"
+PROGRESS_CARD_CHECKED = "card_checked"
 
 
 class _IdReader(Protocol):
@@ -35,7 +38,12 @@ class _IdReader(Protocol):
 
 
 class _Issue(Protocol):
-    def issue(self, *, customer_uid_hash: str) -> IssueResult: ...
+    def issue(
+        self,
+        *,
+        customer_uid_hash: str,
+        on_card_checked: Callable[[], None] | None = None,
+    ) -> IssueResult: ...
 
 
 class _TopUp(Protocol):
@@ -44,6 +52,12 @@ class _TopUp(Protocol):
 
 class _Watch(Protocol):
     def start(self, card: Card) -> bool: ...
+
+    def cancel(self) -> None: ...
+
+
+class _ExitSensor(Protocol):
+    def exit_occupied(self) -> bool: ...
 
 
 class CustomerFlows:
@@ -56,6 +70,8 @@ class CustomerFlows:
         hasher: Salted hasher for the customer identifier.
         watch: Starts the forgotten-card watch for an issued card. Optional.
         db: Reads the issued card for the watch. Required with ``watch``.
+        exit_sensor: Reports whether a card waits at the user exit. When it is
+            occupied, the ID is not read at all. Optional.
     """
 
     def __init__(
@@ -67,21 +83,36 @@ class CustomerFlows:
         hasher: CardIdHasher,
         watch: _Watch | None = None,
         db: UnitOfWorkFactory | None = None,
+        exit_sensor: _ExitSensor | None = None,
     ) -> None:
         self._reader = reader
+        self._exit_sensor = exit_sensor
         self._issue = issue
         self._topup = topup
         self._hasher = hasher
         self._watch = watch
         self._db = db
 
-    def start_issue(self) -> str:
-        """Read the customer ID, then issue one card. Returns a result key."""
+    def start_issue(self, on_progress: Callable[[str], None] | None = None) -> str:
+        """Read the customer ID, then issue one card. Returns a result key.
+
+        Args:
+            on_progress: Optional hook called with ``PROGRESS_CARD_CHECKED``
+                once the dispensed card was checked. Runs on the flow's thread.
+        """
+        if self._exit_occupied():
+            return RESULT_EXIT_OCCUPIED
         customer_hash = self._read_customer_hash()
         if customer_hash is None:
             return RESULT_ABORTED
+        on_card_checked = (
+            None if on_progress is None else lambda: on_progress(PROGRESS_CARD_CHECKED)
+        )
         try:
-            result = self._issue.issue(customer_uid_hash=customer_hash)
+            result = self._issue.issue(
+                customer_uid_hash=customer_hash,
+                on_card_checked=on_card_checked,
+            )
         except KioskError as exc:
             logger.error(
                 "customer_issue_failed",
@@ -100,8 +131,19 @@ class CustomerFlows:
             card = uow.cards.get(card_id)
         self._watch.start(card)
 
+    def interrupt_watch(self) -> None:
+        """Customer touched a button: dispose of a waiting card now.
+
+        Safe to call from the GUI thread. It only sets the watch's cancel event;
+        the disposal itself runs in the watch thread through the UID check.
+        """
+        if self._watch is not None:
+            self._watch.cancel()
+
     def start_topup(self) -> str:
         """Read the customer ID, then top up the existing account."""
+        if self._exit_occupied():
+            return RESULT_EXIT_OCCUPIED
         customer_hash = self._read_customer_hash()
         if customer_hash is None:
             return RESULT_ABORTED
@@ -116,6 +158,19 @@ class CustomerFlows:
             )
             return RESULT_ABORTED
         return RESULT_TOPPED_UP
+
+    def _exit_occupied(self) -> bool:
+        """True if a card waits at the exit. The ID reader must not run then.
+
+        A card still waiting for the forgotten-card watch is disposed of at once,
+        through the watch's UID check, so the customer does not wait for the timer.
+        """
+        if self._exit_sensor is None:
+            return False
+        occupied = self._exit_sensor.exit_occupied()
+        if occupied and self._watch is not None:
+            self._watch.cancel()
+        return occupied
 
     def _read_customer_hash(self) -> str | None:
         """Read and hash the customer ID. None means the flow is aborted."""

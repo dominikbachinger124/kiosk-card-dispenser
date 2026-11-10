@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -19,7 +20,7 @@ class _FakeCustomer:
         self.issue_calls = 0
         self.topup_calls = 0
 
-    def start_issue(self) -> str:
+    def start_issue(self, on_progress: Callable[[str], None] | None = None) -> str:
         self.issue_calls += 1
         return "issued"
 
@@ -160,10 +161,10 @@ class _RecordingCustomer(_FakeCustomer):
         self.bridge: object | None = None
         self.status_at_call: str | None = None
 
-    def start_issue(self) -> str:
+    def start_issue(self, on_progress: Callable[[str], None] | None = None) -> str:
         assert self.bridge is not None
         self.status_at_call = self.bridge.status  # type: ignore[attr-defined]
-        return super().start_issue()
+        return super().start_issue(on_progress)
 
 
 def test_issue_shows_present_id_prompt_before_reading(qt_app: object) -> None:
@@ -198,7 +199,7 @@ class _BlockingCustomer:
         self.entered = threading.Event()
         self.release = threading.Event()
 
-    def start_issue(self) -> str:
+    def start_issue(self, on_progress: Callable[[str], None] | None = None) -> str:
         self.entered.set()
         self.release.wait(5)
         return "issued"
@@ -219,6 +220,85 @@ def test_present_id_hint_is_visible_while_flow_blocks(qt_app: object) -> None:
 
     # The flow is still blocked here: the prompt is what the customer sees.
     assert bridge.status == "Bitte Ausweis auflegen."  # type: ignore[attr-defined]
+
+    customer.release.set()
+    for _ in range(50):
+        _process_events()
+        if bridge.status == "Karte ausgegeben.":  # type: ignore[attr-defined]
+            break
+    assert bridge.status == "Karte ausgegeben."  # type: ignore[attr-defined]
+
+
+def _rendered_texts(root: object) -> list[str]:
+    """Return the text of every QML Text item in the object tree."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    items = root.findChildren(QQuickItem)  # type: ignore[attr-defined]
+    return [
+        str(item.property("text"))
+        for item in items
+        if isinstance(item, QObject) and item.metaObject().className() == "QQuickText"
+    ]
+
+
+def test_present_id_hint_is_rendered_in_qml_while_flow_blocks(qt_app: object) -> None:
+    """The QML Text must show the prompt, not only the bridge property."""
+    customer = _BlockingCustomer()
+    keep = _create(customer, None)
+    bridge = keep[1]
+    root = keep[3]
+
+    bridge.startIssue()
+    _process_events()
+    assert customer.entered.wait(2)
+
+    assert "Bitte Ausweis auflegen." in _rendered_texts(root)
+
+    customer.release.set()
+    for _ in range(50):
+        _process_events()
+        if "Karte ausgegeben." in _rendered_texts(root):
+            break
+    assert "Karte ausgegeben." in _rendered_texts(root)
+    assert "Bitte Ausweis auflegen." not in _rendered_texts(root)
+
+
+class _ProgressCustomer:
+    """Issue flow that reports the checked-card hint, then waits for release."""
+
+    def __init__(self) -> None:
+        import threading
+
+        self.checked = threading.Event()
+        self.release = threading.Event()
+
+    def start_issue(self, on_progress: Callable[[str], None] | None = None) -> str:
+        if on_progress is not None:
+            on_progress("card_checked")
+        self.checked.set()
+        self.release.wait(5)
+        return "issued"
+
+    def start_topup(self) -> str:
+        return "topped_up"
+
+
+def test_card_checked_hint_is_rendered_before_flow_ends(qt_app: object) -> None:
+    customer = _ProgressCustomer()
+    keep = _create(customer, None)
+    bridge = keep[1]
+    root = keep[3]
+
+    bridge.startIssue()
+    assert customer.checked.wait(2)
+    for _ in range(50):
+        _process_events()
+        if "Karte wird geprüft ..." in _rendered_texts(root):
+            break
+
+    assert "Karte wird geprüft ..." in _rendered_texts(root)
+    assert bridge.status == "Karte wird geprüft ..."  # type: ignore[attr-defined]
 
     customer.release.set()
     for _ in range(50):

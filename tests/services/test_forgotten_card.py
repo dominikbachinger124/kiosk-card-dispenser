@@ -161,7 +161,7 @@ def test_card_taken_within_wait_is_not_recycled(
     outcome = service.watch(issued_card)
 
     assert outcome is ForgottenCardOutcome.TAKEN_BY_USER
-    assert sleeper.durations == [30.0]
+    assert sleeper.durations == [1.0]
     assert "CP" not in dispenser.calls
 
 
@@ -294,3 +294,172 @@ def test_wait_must_be_positive(
             sleep=lambda _s: None,
             wait_s=0.0,
         )
+
+
+def test_taken_early_ends_watch_without_full_wait(
+    uow_factory: UnitOfWorkFactory,
+    hasher: CardIdHasher,
+    now: datetime,
+    issued_card: Card,
+) -> None:
+    """A card taken after the first check ends the watch; no further waiting."""
+    dispenser = FakeDispenser(user_exit=True)
+    sleeper = Sleeper(dispenser, remove_on_sleep=True)
+    service = _service(dispenser, uow_factory, hasher, now, sleeper)
+
+    outcome = service.watch(issued_card)
+
+    assert outcome is ForgottenCardOutcome.TAKEN_BY_USER
+    assert sleeper.durations == [1.0]
+    assert "CP" not in dispenser.calls
+
+
+def test_card_left_for_full_wait_is_recycled(
+    uow_factory: UnitOfWorkFactory,
+    hasher: CardIdHasher,
+    now: datetime,
+    issued_card: Card,
+) -> None:
+    """Left at the exit for all 45 s: polled each second, then recycled."""
+    dispenser = FakeDispenser(user_exit=True)
+    sleeper = Sleeper(dispenser)
+    service = _service(dispenser, uow_factory, hasher, now, sleeper)
+
+    outcome = service.watch(issued_card)
+
+    assert outcome is ForgottenCardOutcome.RECYCLED
+    assert len(sleeper.durations) == 45
+    assert sum(sleeper.durations) == 45.0
+
+
+class _FaultSpy:
+    """Records fault reports; stands in for FaultService."""
+
+    def __init__(self) -> None:
+        self.reports: list[object] = []
+
+    def report(
+        self,
+        code: object,
+        session_id: str | None = None,
+        *,
+        account_id: int | None = None,
+        card_id: int | None = None,
+    ) -> object:
+        self.reports.append((code, card_id))
+        return object()
+
+
+def _clear_service(
+    dispenser: FakeDispenser,
+    uow_factory: UnitOfWorkFactory,
+    hasher: CardIdHasher,
+    now: datetime,
+    faults: _FaultSpy | None,
+) -> ForgottenCardService:
+    return ForgottenCardService(
+        dispenser,
+        uow_factory,
+        hasher,
+        FixedClock(now),
+        deposit=DEPOSIT,
+        sleep=lambda _s: None,
+        faults=faults,
+    )
+
+
+def test_clear_exit_recycles_when_uid_matches(
+    uow_factory: UnitOfWorkFactory,
+    hasher: CardIdHasher,
+    now: datetime,
+    issued_card: Card,
+) -> None:
+    dispenser = FakeDispenser(user_exit=True)
+    faults = _FaultSpy()
+    service = _clear_service(dispenser, uow_factory, hasher, now, faults)
+
+    outcome = service.clear_exit_before_issue(issued_card)
+
+    assert outcome is ForgottenCardOutcome.RECYCLED
+    assert dispenser.calls[-3:] == ["FC7", "READ", "CP"]
+    assert faults.reports == []
+
+
+def test_clear_exit_with_other_card_disposes_nothing_and_reports_fault(
+    uow_factory: UnitOfWorkFactory,
+    hasher: CardIdHasher,
+    now: datetime,
+    issued_card: Card,
+) -> None:
+    dispenser = FakeDispenser(user_exit=True, read_uid_value=OTHER_UID)
+    faults = _FaultSpy()
+    service = _clear_service(dispenser, uow_factory, hasher, now, faults)
+
+    outcome = service.clear_exit_before_issue(issued_card)
+
+    assert outcome is ForgottenCardOutcome.WRONG_CARD
+    assert "CP" not in dispenser.calls
+    assert len(faults.reports) == 1
+    code, card_id = faults.reports[0]  # type: ignore[misc]
+    assert str(code) == "CARD_UID_AMBIGUOUS"
+    assert card_id == issued_card.id
+
+
+def test_cancel_during_wait_recycles_now_after_uid_check(
+    uow_factory: UnitOfWorkFactory,
+    hasher: CardIdHasher,
+    now: datetime,
+    issued_card: Card,
+) -> None:
+    """A touch during the wait disposes of the watched card at once."""
+    import threading
+
+    dispenser = FakeDispenser(user_exit=True)
+    cancel = threading.Event()
+    sleeper = Sleeper(dispenser)
+
+    def sleep_then_touch(seconds: float) -> None:
+        sleeper(seconds)
+        cancel.set()
+
+    service = ForgottenCardService(
+        dispenser,
+        uow_factory,
+        hasher,
+        FixedClock(now),
+        deposit=DEPOSIT,
+        sleep=sleep_then_touch,
+    )
+
+    outcome = service.watch(issued_card, cancel)
+
+    assert outcome is ForgottenCardOutcome.RECYCLED
+    assert sleeper.durations == [1.0]
+    assert dispenser.calls[-3:] == ["FC7", "READ", "CP"]
+
+
+def test_cancel_with_other_card_disposes_nothing(
+    uow_factory: UnitOfWorkFactory,
+    hasher: CardIdHasher,
+    now: datetime,
+    issued_card: Card,
+) -> None:
+    """A touch never disposes of a card whose UID does not match."""
+    import threading
+
+    dispenser = FakeDispenser(user_exit=True, read_uid_value=OTHER_UID)
+    cancel = threading.Event()
+    cancel.set()
+    service = ForgottenCardService(
+        dispenser,
+        uow_factory,
+        hasher,
+        FixedClock(now),
+        deposit=DEPOSIT,
+        sleep=lambda _s: None,
+    )
+
+    outcome = service.watch(issued_card, cancel)
+
+    assert outcome is ForgottenCardOutcome.WRONG_CARD
+    assert "CP" not in dispenser.calls

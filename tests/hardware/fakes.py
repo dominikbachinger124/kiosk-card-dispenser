@@ -38,6 +38,15 @@ class FakeDispenser:
     calls: list[str] = field(default_factory=list)
     _state: FakeState = field(default_factory=FakeState)
 
+    @property
+    def exit_occupied(self) -> bool:
+        """Whether a card currently sits at the user exit (test helper)."""
+        return self._state.user_exit_occupied
+
+    @exit_occupied.setter
+    def exit_occupied(self, value: bool) -> None:
+        self._state.user_exit_occupied = value
+
     def _check(self, name: str) -> None:
         self.calls.append(name)
         if self.failures:

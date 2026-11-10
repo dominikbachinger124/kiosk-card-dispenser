@@ -25,6 +25,7 @@ from kiosk.domain.money import Money
 from kiosk.hardware.coordinated import CoordinatedDispenser
 from kiosk.hardware.coordinator import HardwareCoordinator
 from kiosk.hardware.flipper_reader import FlipperIdReader
+from kiosk.hardware.interfaces import CardDispenser, IdReader
 from kiosk.hardware.k720 import K720Dispenser
 from kiosk.hardware.serial_port import LazySerialPort, open_pyserial
 from kiosk.services.admin_auth import AdminAuthService, AdminCredentials
@@ -65,7 +66,7 @@ class KioskApp:
     config: KioskConfig
     applied_migrations: list[str]
     issue: IssueCardService
-    id_reader: FlipperIdReader
+    id_reader: IdReader
     coordinator: HardwareCoordinator
     topup: TopUpService
     faults: FaultService
@@ -74,6 +75,8 @@ class KioskApp:
     admin_session: AdminSessionGuard
     customer: CustomerFlows
     watch: ForgottenWatch
+    forgotten_card: ForgottenCardService
+    uow: UnitOfWorkFactory
 
 
 def read_salt(environ: dict[str, str] | None = None) -> bytes:
@@ -104,6 +107,8 @@ def build_app(
     db_path: Path | None = None,
     clock: Clock | None = None,
     open_serial: Callable[[str], Any] | None = None,
+    dispenser: CardDispenser | None = None,
+    id_reader: IdReader | None = None,
 ) -> KioskApp:
     """Validate configuration, prepare the database and wire the services.
 
@@ -113,6 +118,9 @@ def build_app(
         clock: Time source. Defaults to the system clock.
         open_serial: Opener for a serial device path. Defaults to pyserial.
             Stored in lazy ports; never called at startup.
+        dispenser: Test seam only. Replaces the real K720 adapter. Production
+            start never passes it.
+        id_reader: Test seam only. Replaces the real Flipper reader.
 
     Returns:
         The wired application.
@@ -146,13 +154,17 @@ def build_app(
     flipper_port = LazySerialPort(config.hardware.flipper_port, opener)
     raw_dispenser = K720Dispenser(k720_port, clock=time.monotonic, sleep=time.sleep)
     coordinator = HardwareCoordinator(raw_dispenser)
-    dispenser = CoordinatedDispenser(raw_dispenser, coordinator)
-    id_reader = FlipperIdReader(lambda: flipper_port)
+    coordinated: CardDispenser = CoordinatedDispenser(raw_dispenser, coordinator)
+    if dispenser is not None:
+        coordinated = dispenser
+    reader: IdReader = FlipperIdReader(lambda: flipper_port)
+    if id_reader is not None:
+        reader = id_reader
 
     admin_session = AdminSessionGuard(clock_impl)
     faults = FaultService(uow, clock_impl, admin_session)
     issue = IssueCardService(
-        dispenser,
+        coordinated,
         uow,
         hasher,
         faults,
@@ -178,7 +190,7 @@ def build_app(
     # The watch uses the coordinated dispenser, so its movement is serialized
     # with polling and the customer flows.
     forgotten = ForgottenCardService(
-        dispenser,
+        coordinated,
         uow,
         hasher,
         clock_impl,
@@ -187,7 +199,7 @@ def build_app(
     )
     watch = ForgottenWatch(forgotten)
     customer = CustomerFlows(
-        reader=id_reader,
+        reader=reader,
         issue=issue,
         topup=top_up,
         hasher=hasher,
@@ -199,7 +211,7 @@ def build_app(
         config=config,
         applied_migrations=applied,
         issue=issue,
-        id_reader=id_reader,
+        id_reader=reader,
         coordinator=coordinator,
         topup=top_up,
         faults=faults,
@@ -208,6 +220,8 @@ def build_app(
         admin_session=admin_session,
         customer=customer,
         watch=watch,
+        forgotten_card=forgotten,
+        uow=uow,
     )
 
 

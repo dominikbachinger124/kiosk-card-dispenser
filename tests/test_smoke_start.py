@@ -39,6 +39,7 @@ def test_smoke_without_salt_still_fails_closed(
     from kiosk.__main__ import main
 
     monkeypatch.delenv(SALT_ENV, raising=False)
+    monkeypatch.chdir(tmp_path)  # no project .env here
     path = tmp_path / "config.toml"
     path.write_text(VALID_CONFIG_TOML, encoding="utf-8")
 

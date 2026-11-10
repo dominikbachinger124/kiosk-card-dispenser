@@ -9,6 +9,7 @@ admin UIDs or PIN hashes.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -16,10 +17,12 @@ from pathlib import Path
 from kiosk.bootstrap import build_app
 from kiosk.config import load_config
 from kiosk.domain.errors import ConfigError
+from kiosk.env_file import load_env_file
 from kiosk.logging_setup import configure_logging
 
 DEFAULT_CONFIG_PATH = Path("config.toml")
 DEFAULT_LOG_DIR = Path("~/.local/state/kiosk/logs")
+DEFAULT_ENV_PATH = Path(".env")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -76,8 +79,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             load_config(args.config)
             print("config ok")
             return 0
+        # Local secrets (salt) come from .env; an explicit shell value wins.
+        load_env_file(DEFAULT_ENV_PATH, os.environ)
         app = build_app(args.config, db_path=args.db)
-    except ConfigError:
+    except (ConfigError, ValueError):
         # Only the stable code is printed. The message may name a path or key
         # that is operator-specific, so it stays out of the output.
         print("CONFIG_INVALID", file=sys.stderr)

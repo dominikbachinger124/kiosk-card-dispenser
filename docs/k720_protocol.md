@@ -145,6 +145,16 @@ Hinweise zur Matrix:
 
 Dieser Ablauf ist die Empfehlung. Schritt 5 (`FC7` aus Ausgang) ist gemessen (Zustand U -> L+U), Schritt 4 (Entnahme) ist eine Nutzeraktion.
 
+## 9a. Mechanische Automatik (ohne Befehl)
+
+Drei Vorgänge laufen im Gerät ohne Softwarebefehl ab. Die Begriffe gelten im Projekt:
+
+- **a) Automatische Nachladung:** Nach Entnahme der Karte am Ausgang (U) kommt ohne Befehl eine Karte aus dem Vorrat an Sensor Stapel (S). Gemessen: `0x1010` (Vorbereitung), danach stabil `0x0014` (S), siehe 10.1.
+- **b) Automatischer Karteneinzug:** Der User schiebt eine Karte von vorne ein. Das Gerät zieht sie ohne Befehl an die Position L+U. Gemessen: nach ca. 4,7 s stabil `0x0013` (L+U), kein Befehl gesendet. Offen: ob Sensor Stapel dabei frei wird und ob die Karte in U+L oder L+U liegt; die Messung nennt L+U.
+- **c) Rückgabe an User:** `FC4` aus L+U. Die Karte wird an den Ausgang (U) gegeben. Gemessen: Ergebnis `0x0011` (U), siehe 9 Schritt 5.
+
+Wichtig: Die Software sendet nur bei c) einen Befehl. Bei a) und b) darf sie keinen Befehl senden, sondern nur den Zustand lesen.
+
 ## 10. Bekannte Einschränkungen und offene Punkte
 
 - Die Antwort auf `0x3B 0x31` ist `P;1` gefolgt von 4 UID-Bytes. CLAUDE.md nennt `P;3B31`, das wurde am Gerät nicht bestätigt.

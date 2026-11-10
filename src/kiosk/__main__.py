@@ -16,8 +16,10 @@ from pathlib import Path
 from kiosk.bootstrap import build_app
 from kiosk.config import load_config
 from kiosk.domain.errors import ConfigError
+from kiosk.logging_setup import configure_logging
 
 DEFAULT_CONFIG_PATH = Path("config.toml")
+DEFAULT_LOG_DIR = Path("~/.local/state/kiosk/logs")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -57,7 +59,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help="database file (default: ~/.local/share/kiosk/kiosk.db)",
     )
+    parser.add_argument(
+        "--log-dir",
+        type=Path,
+        default=DEFAULT_LOG_DIR,
+        help="directory for kiosk.log (default: ~/.local/state/kiosk/logs)",
+    )
     args = parser.parse_args(argv)
+
+    if not args.check_config:
+        # Logging first, so the bootstrap and the flows write JSON lines.
+        configure_logging(args.log_dir.expanduser())
 
     try:
         if args.check_config:
